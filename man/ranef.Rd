@@ -41,7 +41,7 @@ Marco Geraci
 }
 
 \seealso{
-\code{\link{nlmm}}, \code{\link{coef.nlmm}}
+\code{\link{nlmm}}, \code{\link{fixef.nlmm}}
 }
 
 \keyword{random effects}
