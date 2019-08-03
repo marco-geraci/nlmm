@@ -8,7 +8,7 @@ The Multivariate Symmetric Generalized Laplace Distribution
 }
 
 \description{
-Density, distribution function, quantile function and random generation for the multivariate generalized Laplace distribution.}
+Density and random generation for the multivariate generalized Laplace distribution.}
 
 \usage{
 dmgl(x, mu = rep(0, n), sigma = diag(n), shape = 1, log = FALSE)
