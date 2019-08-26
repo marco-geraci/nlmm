@@ -1,7 +1,7 @@
 Package: nlmm
 Type: Package
 Title: Generalized Laplace Mixed-Effects Models
-Version: 1.00
+Version: 1.0.0
 Date: 2019-08-02
 Authors@R: c(person(given="Marco", family="Geraci", role=c("aut", "cph", "cre"), email="geraci@mailbox.sc.edu", comment = c(ORCID = "0000-0002-6311-8685")), person(given="Alessio", family="Farcomeni", role=c("ctb"), email="alessio.farcomeni@uniroma1.it"))
 Maintainer: Marco Geraci <geraci@mailbox.sc.edu>
