@@ -113,8 +113,46 @@ Marco Geraci
 
 \examples{
 
-data(rats)
+\dontrun{
+library(nlmm)
+library(nlme)
 
-nlmm(y ~ trt*time, random = ~ 1, group = id, data = rats, control = nlmmControl(multistart = FALSE))
+data(rats, package = "nlmm")
+
+# Homoscedastic and heteroscedastic models as in Section 6.2 of Geraci and Farcomeni (2019)
+
+ff <- y ~ -1 + trt + time:trt
+rr <- ~ time
+
+# homoscedastic NN
+
+nlmm(ff, random = rr, group = id, covariance = "pdSymm", data = rats,
+control = nlmmControl(alpha.index = 0, alpha = c(0,0)))
+# equivalent to
+lme(ff, random =  list(id = pdMat(rr, pdClass = "pdSymm")), data = rats,
+method = "ML", control = lmeControl(opt = nlmmControl()$lmeOpt))
+
+# homoscedastic GL
+
+fit_GL <- nlmm(ff, random = rr, group = id, covariance = "pdSymm", data = rats,
+control = nlmmControl(nK = 10, grid = c(0.001, 0.1, 0.3, 0.5, 0.7, 0.9, 0.999)))
+
+# heteroscedastic NN
+
+nlmm(ff, random = rr, group = id, covariance = "pdSymm", data = rats,
+control = nlmmControl(alpha.index = 0, alpha = c(0,0)),
+weights = varIdent(form = ~ 1|time))
+# equivalent to
+lme(ff, random =  list(id = pdMat(rr, pdClass = "pdSymm")), data = rats,
+method = "ML", control = lmeControl(opt = nlmmControl()$lmeOpt),
+weights = varIdent(form = ~ 1|time))
+
+# heteroscedastic GL
+
+nlmm(ff, random = rr, group = id, covariance = "pdSymm", data = rats,
+control = nlmmControl(nK = 10, grid = c(0.001, 0.1, 0.3, 0.5, 0.7, 0.9, 0.999)),
+weights = varIdent(form = ~ 1|time))
+
+}
  
 }

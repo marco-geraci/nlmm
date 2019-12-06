@@ -12,7 +12,7 @@ Mixed-effects models using the generalized Laplace distribution.
 Package: \tab nlmm\cr
 Type: \tab Package\cr
 Version: \tab 1.0.0\cr
-Date: \tab 2019-08-02\cr
+Date: \tab 2019-12-06\cr
 License: \tab GPL (>=3)\cr
 LazyLoad: \tab yes\cr
 }

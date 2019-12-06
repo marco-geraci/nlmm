@@ -65,4 +65,22 @@ Marco Geraci and Alessio Farcomeni
 }
 
 
+\examples{
+
+\dontrun{
+
+data(rats, package = "nlmm")
+
+# NN model
+fit0 <- nlmm(y ~ time*trt, random = ~ 1, group = id, data = rats, control = nlmmControl(alpha.index = 0, alpha = c(0,0)))
+
+# GL model
+fit1 <- nlmm(y ~ time*trt, random = ~ 1, group = id, data = rats)
+
+# LRT
+lrt_nlmm(fit0, fit1)
+
+}
+ 
+}
 \keyword{Likelihood ratio test}

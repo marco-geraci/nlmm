@@ -35,21 +35,21 @@ the estimation with parameter alpha is unconstrained if \code{alpha.index} is eq
 logical flag. Should \code{\link{lme}} be used to get starting values? If \code{FALSE}, \code{\link{lm}} is used instead.
 }
   \item{lmeMethod}{
-fitting method for \code{\link{lme}} when obtaining starting values. If "REML" the model is fit by maximizing the restricted log-likelihood. If "ML" the log-likelihood is maximized.
+fitting method for \code{\link{lme}} when obtaining starting values. If "REML" the model is fit by maximizing the restricted log-likelihood. If "ML" the log-likelihood is maximized. This argument will have no effect when \code{lme} is called to obtain a Normal-Normal model.
 }
   \item{lmeOpt}{
-optimization algorithm for \code{\link{lme}}. Either either \code{\link{nlminb}} (the default) or \code{\link{optim}}. This is passed to argument \code{opt} in \code{\link{lmeControl}}.
+optimization algorithm for \code{\link{lme}}. Either \code{\link{nlminb}} (the default) or \code{\link{optim}}. This is passed to argument \code{opt} in \code{\link{lmeControl}}. This argument will have an effect whenever \code{lme} is called (either to obtain starting values or to fit a Normal-Normal model).
 }
 }
 
 \details{
-The estimation algorithm for fitting generalized Laplace mixed-effects (GLME) models is described in Geraci and Farcomeni (2019). For unconstrained estimation, it is recommended to leave the default arguments in \code{nlmmControl} unchanged.
+The estimation algorithm for fitting generalized Laplace mixed-effects (GLME) models is described in Geraci and Farcomeni (2019). For unconstrained estimation, it is recommended to leave the default arguments in \code{nlmmControl} unchanged. However, refer to Section 4.1 in Geraci and Farcomeni (2019) for potential numerical issues and solutions.
 
-Since the parameter alpha is bidimensional, care should be taken when increasing the number of quadrature knots \code{nK} since the total number of quadrature points is given by \eqn{2^{nK}}{2^nK}. For the same reason, care should be taken when providing the \code{grid} values for multi-start optimization since the total number of starting points will be \eqn{s^{2}}{s^2}, where \code{s = length(grid)}.
+Since the parameter alpha is bidimensional, care should be taken when increasing the number of quadrature knots \code{nK} since the total number of quadrature points is given by \eqn{nK^{2}}{nK^2}. For the same reason, care should be taken when providing the \code{grid} values for multi-start optimization since the total number of starting points will be \eqn{s^{2}}{s^2}, where \code{s = length(grid)}.
 
 If \code{alpha.index} is 1 (or 2), the first (or second) element of the alpha parameter is constrained during estimation and set equal to the corresponding value of \code{alpha}. The element of the alpha parameter that is \emph{unconstrained} is initialized with the corresponding element of \code{alpha} (if \code{multistart} is \code{FALSE}) or with values in \code{grid} (if \code{multistart} is \code{TRUE}).
 
-If \code{alpha.index} is 0, both elements of the alpha parameter are fixed and set equal to \code{alpha}. In this case, the argument \code{multistart} is ignored. If \code{alpha} is \code{c(0,0)}, the corresponding model is Normal-Normal and \code{\link{lme}} is used for fitting (only via maximum likelihood). Note that in this case, \code{lmeOpt} can still be used.
+If \code{alpha.index} is 0, both elements of the alpha parameter are fixed and set equal to \code{alpha}. In this case, the argument \code{multistart} is ignored. If \code{alpha} is \code{c(0,0)}, the corresponding model is Normal-Normal and \code{\link{lme}} is used for fitting (only via maximum likelihood). Note that, in this case, \code{lmeOpt} can still be used to change optimization algorithm in \code{lme}.
 }
 
 \value{
