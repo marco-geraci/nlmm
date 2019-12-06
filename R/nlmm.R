@@ -49,6 +49,9 @@ QUAD <- list(nodes = cbind(q1$nodes, q2$nodes), weights = cbind(q1$weights, q2$w
 
 val <- C_ll(knots = QUAD$nodes, weights = QUAD$weights, beta = theta_x, Sigma1 = Sigma1, Sigma2 = Sigma2, Y = Y, x = x, z = z, M = M, N = N, ni = ni, P = P, Q = Q, K = nK)
 
+# differential
+val <- val + sum(log(w))
+
 # negative integrated log-likelihood
 return(-val)
 
@@ -99,6 +102,9 @@ q2 <- gauss.quad.prob(nK, "gamma", alpha = min(1/alpha[2], 1e10), beta = 1)
 QUAD <- list(nodes = cbind(q1$nodes, q2$nodes), weights = cbind(q1$weights, q2$weights))
 
 val <- C_ll(knots = QUAD$nodes, weights = QUAD$weights, beta = theta_x, Sigma1 = Sigma1, Sigma2 = Sigma2, Y = Y, x = x, z = z, M = M, N = N, ni = ni, P = P, Q = Q, K = nK)
+
+# differential
+val <- val + sum(log(w))
 
 # negative integrated log-likelihood
 return(-val)
@@ -177,23 +183,13 @@ if(control$alpha.index == 0){
 	#if(sc == "Normal-Normal") cat("Both alphas are fixed to 0. Fitting a standard linear mixed model with 'nlmm'. Consider using 'lme' instead", "\n")
 }
 # initialize
-if(sc == "Normal-Normal"){
-	cat("Both alphas are fixed to 0. Fitting a standard linear mixed model with 'lme'", "\n")
-	reStruct <- list(group = nlme::pdMat(random, pdClass = cov_name))
-	names(reStruct) <- as.character(group)
-	lmeFit <- nlme::lme(fixed = fixed, random = reStruct, weights = weights, data = dataMix, method = "ML", control = lmeControl(opt = control$lmeOpt))
-	ans <- lme2nlmm(x = lmeFit, Call = Call, mmf = mmf, mmr = mmr, y = y, revOrder = revOrder, vf = vf, contr = contr, grp = grp, control = control, cov_name = cov_name, mfArgs = mfArgs)
-	return(ans)
-
-}
-
 if(control$lme){
 	reStruct <- list(group = nlme::pdMat(random, pdClass = cov_name))
 	names(reStruct) <- as.character(group)
 	lmeFit <- nlme::lme(fixed = fixed, random = reStruct, weights = weights, data = dataMix, method = control$lmeMethod, control = lmeControl(opt = control$lmeOpt))
 	theta_x <- as.numeric(lmeFit$coefficients$fixed)
 	theta_z <- as.numeric(coef(lmeFit[[1]]$reStruct)) # log-Cholesky scale
-	theta_w <- as.numeric(coef(lmeFit[[1]]$varStruct)) # numeric(0) if coef is NULL
+	theta_w <- as.numeric(coef(lmeFit[[1]]$varStruct, unconstrained = TRUE)) # numeric(0) if coef is NULL
 	phi_0 <- log(lmeFit$sigma) # log scale
 } else {
 	lmFit <- lm(y ~ mmf - 1)
@@ -214,6 +210,15 @@ if(!fit){
 	return(FIT_ARGS)
 }
 
+if(sc == "Normal-Normal"){
+	cat("Both alphas are fixed to 0. Fitting a standard linear mixed model with 'lme(..., method = 'ML')'", "\n")
+	reStruct <- list(group = nlme::pdMat(random, pdClass = cov_name))
+	names(reStruct) <- as.character(group)
+	lmeFit <- nlme::lme(fixed = fixed, random = reStruct, weights = weights, data = dataMix, method = "ML", control = lmeControl(opt = control$lmeOpt))
+	ans <- lme2nlmm(x = lmeFit, Call = Call, mmf = mmf, mmr = mmr, y = y, revOrder = revOrder, vf = vf, contr = contr, grp = grp, control = control, cov_name = cov_name, mfArgs = mfArgs)
+	return(ans)
+
+}
 
 if(control$multistart & control$alpha.index == 0){
 	control$multistart <- FALSE
@@ -375,47 +380,62 @@ if(!alpha.index %in% c(0, 1, 2)) stop("This fitted model is not constrained. 'al
 
 FIT_ARGS <- list(theta = object$InitialPar$theta, y = object$y, x = object$mmf, z = object$mmr, group = object$group, nK = object$control$nK, P = object$dim_theta[1], Q = object$dim_theta[2], S = object$dim_theta_z, M = object$ngroups, N = length(object$y), cov_name = object$cov_name, vf = object$vf)
 # Modify FIT_ARGS$theta as it was an unconstrained fit
-FIT_ARGS$theta <- c(object$theta_x, object$theta_z, object$tau, object$phi)
+dim_theta_w <- length(coef(object$vf))
+if(dim_theta_w > 0){
+	theta_w <- coef(object$vf, unconstrained = TRUE)
+} else {
+	theta_w <- NULL
+}
+FIT_ARGS$theta <- c(object$theta_x, object$theta_z, object$tau, object$phi, theta_w)
+alpha <- object$alpha 
 
 if(alpha.index == 0){
 
-	f <- function(tau, MoreArgs){
-		P <- MoreArgs$P
-		S <- MoreArgs$S
-		MoreArgs$theta[(P + S + 1):(P + S + 2)] <- tau
-		do.call(loglik_nlmm, args = MoreArgs)
-	}
-	
-#val <- hessian(func = f, x = object$tau, method = "Richardson", MoreArgs = FIT_ARGS)
-val <- hessian(func = f, x = logit(c(0, 0), omega = 1e-5), method = "Richardson", MoreArgs = FIT_ARGS)
+       f <- function(tau_tilde, MoreArgs, alpha){
+             P <- MoreArgs$P
+             S <- MoreArgs$S
+             alpha_tilde <- invlogit(tau_tilde)
+             tau <- MoreArgs$theta[(P + S + 1):(P + S + 2)]
+             tau[1] <- if(alpha[1] == 1) logit(1 - alpha_tilde[1], omega = 1e-3) else if(alpha[1] == 0) tau_tilde[1] else tau[1]
+             tau[2] <- if(alpha[2] == 1) logit(1 - alpha_tilde[2], omega = 1e-3) else if(alpha[2] == 0) tau_tilde[2] else tau[2]
+             MoreArgs$theta[(P + S + 1):(P + S + 2)] <- tau
+             do.call(loglik_nlmm, args = MoreArgs)
+       }
+
+val <- hessian(func = f, x = logit(c(0, 0), omega = 1e-3), method = "Richardson", MoreArgs = FIT_ARGS, alpha = alpha)
 
 }
 
 if(alpha.index == 1){
 
-	f <- function(tau, MoreArgs){
-		P <- MoreArgs$P
-		S <- MoreArgs$S
-		MoreArgs$theta[(P + S + 1)] <- tau
-		do.call(loglik_nlmm, args = MoreArgs)
-	}
-	
-val <- hessian(func = f, x = object$tau[1], method = "Richardson", MoreArgs = FIT_ARGS)
+       f <- function(tau_tilde, MoreArgs, alpha){
+             P <- MoreArgs$P
+             S <- MoreArgs$S
+             alpha_tilde <- invlogit(tau_tilde)
+             tau <- if(alpha[1] == 1) logit(1 - alpha_tilde, omega = 1e-3) else tau_tilde
+             MoreArgs$theta[(P + S + 1)] <- tau
+             do.call(loglik_nlmm, args = MoreArgs)
+       }
+       
+val <- hessian(func = f, x = logit(0, omega = 1e-3), method = "Richardson", MoreArgs = FIT_ARGS, alpha = alpha)
 
 }
 
 if(alpha.index == 2){
 
-	f <- function(tau, MoreArgs){
-		P <- MoreArgs$P
-		S <- MoreArgs$S
-		MoreArgs$theta[(P + S + 2)] <- tau
-		do.call(loglik_nlmm, args = MoreArgs)
-	}
-	
-val <- hessian(func = f, x = object$tau[2], method = "Richardson", MoreArgs = FIT_ARGS)
+       f <- function(tau_tilde, MoreArgs, alpha){
+             P <- MoreArgs$P
+             S <- MoreArgs$S
+             alpha_tilde <- invlogit(tau_tilde)
+             tau <- if(alpha[2] == 1) logit(1 - alpha_tilde, omega = 1e-3) else tau_tilde
+             MoreArgs$theta[(P + S + 2)] <- tau
+             do.call(loglik_nlmm, args = MoreArgs)
+       }
+       
+val <- hessian(func = f, x = logit(0, omega = 1e-3), method = "Richardson", MoreArgs = FIT_ARGS, alpha = alpha)
 
 }
+
 
 if(!is.positive.definite(val)){
 	val <- make.positive.definite(val)
@@ -524,9 +544,9 @@ vv <- 1/w^2
 vv <- split(vv, group)
 
 if(object$sc == "Normal-Normal"){
-	Sigma2 <- lapply(vv, function(x, sigma) diag(x = x)*sigma^2, sigma = object$sigma)
+	Sigma2 <- lapply(vv, function(x, sigma) diag(x = x, length(x), length(x))*sigma^2, sigma = object$sigma)
 } else {
-	Sigma2 <- lapply(vv, function(x, sigma, alpha) diag(x = x)*sigma^2/alpha, sigma = object$sigma, alpha = alpha["Error"])
+	Sigma2 <- lapply(vv, function(x, sigma, alpha) diag(x = x, length(x), length(x))*sigma^2/alpha, sigma = object$sigma, alpha = alpha["Error"])
 }
 
 RES <- split(object$y - object$mmf %*% matrix(object$theta_x), group)
@@ -774,8 +794,9 @@ lme2nlmm <- function(x, Call, mmf, mmr, y, revOrder, vf, contr, grp, control, co
 	theta_w <- as.numeric(coef(x[[1]]$varStruct)) # numeric(0) if coef is NULL
 	sigma <- x$sigma
 	phi <- log(sigma) # log scale
-	tau <- c(Inf, Inf)
 	alpha <- c(0, 0)
+	#tau <- c(Inf, Inf)
+	tau <- logit(alpha, omega = 0.001)
 	theta <- c(theta_x, theta_z, phi)
 	coef(vf) <- theta_w
 	nn <- colnames(mmf)
@@ -841,6 +862,14 @@ dgl <- function(x, mu = 0, sigma = 1, shape = 1, log = FALSE){
 # sigma = scale
 # variance = shape*sigma^2
 
+n <- length(x)
+if(length(mu) == 1) mu <- rep(mu, n)
+if(length(sigma) == 1) sigma <- rep(sigma, n)
+if(length(shape) == 1) shape <- rep(shape, n)
+if(length(mu) != n) stop("'mu' must be a vector of 1 or of the same length of x")
+if(length(sigma) != n) stop("'sigma' must be a vector of 1 or of the same length of x")
+if(length(shape) != n) stop("'shape' must be a vector of 1 or of the same length of x")
+
 p <- shape - 1/2
 
 val1 <- sqrt(2)/(sigma^(p + 1)*gamma(shape)*sqrt(pi))
@@ -865,14 +894,20 @@ pgl <- function(x, mu = 0, sigma = 1, shape = 1, lower.tail = TRUE, log.p = FALS
 
 n <- length(x)
 val <- rep(NA, n)
+if(length(mu) == 1) mu <- rep(mu, n)
+if(length(sigma) == 1) sigma <- rep(sigma, n)
+if(length(shape) == 1) shape <- rep(shape, n)
+if(length(mu) != n) stop("'mu' must be a vector of 1 or of the same length of x")
+if(length(sigma) != n) stop("'sigma' must be a vector of 1 or of the same length of x")
+if(length(shape) != n) stop("'shape' must be a vector of 1 or of the same length of x")
 	
 if(lower.tail){
 	for(i in 1:n){
-		val[i] <- integrate(dgl, lower = -Inf, upper = x[i], mu = mu, sigma = sigma, shape = shape)$value
+		val[i] <- integrate(dgl, lower = -Inf, upper = x[i], mu = mu[i], sigma = sigma[i], shape = shape[i])$value
 	}
 } else {
 	for(i in 1:n){
-		val[i] <- integrate(dgl, lower = x[i], upper = Inf, mu = mu, sigma = sigma, shape = shape)$value
+		val[i] <- integrate(dgl, lower = x[i], upper = Inf, mu = mu[i], sigma = sigma[i], shape = shape[i])$value
 	}
 }
 
@@ -891,6 +926,15 @@ qgl <- function(p, mu = 0, sigma = 1, shape = 1, lower.tail = TRUE, log.p = FALS
 # sigma = scale
 # variance = shape*sigma^2
 
+n <- length(p)
+
+if(length(mu) == 1) mu <- rep(mu, n)
+if(length(sigma) == 1) sigma <- rep(sigma, n)
+if(length(shape) == 1) shape <- rep(shape, n)
+if(length(mu) != n) stop("'mu' must be a vector of 1 or of the same length of x")
+if(length(sigma) != n) stop("'sigma' must be a vector of 1 or of the same length of x")
+if(length(shape) != n) stop("'shape' must be a vector of 1 or of the same length of x")
+
 if(log.p) p <- exp(p)
 
 f <- function(x, p, mu, sigma, shape){
@@ -898,13 +942,13 @@ f <- function(x, p, mu, sigma, shape){
 }
 
 V <- shape*sigma^2
-n <- length(p)
 val <- rep(NA, n)
 for(i in 1:n){
-	val[i] <- uniroot(f, p = p[i], mu = mu, sigma = sigma, shape = shape, interval = c(mu - 20*sqrt(V), mu + 20*sqrt(V)))$root
+	 tmp <- try(uniroot(f, p = p[i], mu = mu[i], sigma = sigma[i], shape = shape[i], interval = c(mu[i] - 20*sqrt(V[i]), mu[i] + 20*sqrt(V[i]))), silent = TRUE)
+	 if(!inherits(tmp, "try-error")) val[i] <- tmp$root
 }
 
-val[p == 0.5] <- mu 
+val[p == 0.5] <- mu[p == 0.5]
 
 if(!lower.tail) val <- -val
 
