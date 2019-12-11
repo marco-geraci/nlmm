@@ -1,3 +1,9 @@
+################################################################################
+# This is copyrighted material by Marco Geraci, University of South Carolina.
+# All Rights Reserved.
+################################################################################
+
+
 #########################################################
 ### Fitting
 #########################################################
@@ -1047,4 +1053,144 @@ attr(val, "scale") <- W
 
 return(val)
 }
+
+
+################################################################################
+# R code to generate data in the simulation study 'A family of linear mixed-effects models using the generalized Laplace distribution' by Geraci and Farcomeni
+################################################################################
+
+slash <- function(n, mean, sd){
+	val <- rnorm(n, mean = mean, sd = sd)/runif(n)
+	return(val)
+}
+
+generate.dist <- function(fun, n, q, sigma, shape){
+
+if(q == 1){
+	if(fun == "norm"){
+		fun <- rnorm
+		return(list(fun = fun, n = n, mean = 0, sd = sigma))
+	}
+
+	if(fun == "laplace"){
+		fun <- rl
+		return(list(fun = fun, n = n, mu = 0, sigma = sigma))
+	}
+
+	if(fun == "genlaplace"){
+		fun <- rmgl
+		return(list(fun = fun, n = n, mu = rep(0, 1), sigma = as.matrix(sigma), shape = shape))
+	}
+	
+	if(fun == "chisq"){
+		fun <- rchisq
+		return(list(fun = fun, n = n, df = sigma))
+	}
+
+	if(fun == "t"){
+		fun <- rt
+		return(list(fun = fun, n = n, df = shape))
+	}
+
+	if(fun == "slash"){
+		fun <- slash
+		return(list(fun = fun, n = n, mean = 0, sd = sigma))
+	}
+
+
+}
+
+if(q > 1){
+	if(fun == "norm"){
+		fun <- rmvnorm
+		return(list(fun = fun, n = n, mean = rep(0, q), sigma = sigma))
+	}
+
+	if(fun == "laplace"){
+		fun <- rmal
+		return(list(fun = fun, n = n, mu = rep(0, q), sigma = sigma))
+	}
+	
+	if(fun == "genlaplace"){
+		fun <- rmgl
+		return(list(fun = fun, n = n, mu = rep(0, q), sigma = sigma, shape = shape))
+	}
+
+	if(fun == "t"){
+		fun <- rmvt
+		return(list(fun = fun, n = n, sigma = sigma, df = shape))
+	}
+
+}
+
+}
+
+generate.design <- function(n, M, fixed = FALSE){
+
+# M groups
+# n measurements in each group
+
+N <- n*M
+if(fixed){
+	x <- rep(1:n, M)
+	z <- rbinom(n = N, size = 1, prob = 0.5)
+} else {
+	delta <- rnorm(M, 0, 1)
+	zeta <- rnorm(N, 0, 1)
+	x <- rep(delta, each = n) + zeta
+	z <- rbinom(n = N, size = 1, prob = 0.5)
+}
+
+X <- cbind(1, x, z)
+colnames(X) <- c("intercept","x","z")
+X
+}
+
+generate.data <- function(R, n, M, sigma_1 = NULL, sigma_2 = NULL, shape_1 = NULL, shape_2 = NULL, dist.u, dist.e, beta, gamma, fixed = FALSE, seed = round(runif(1,1,1000))){
+
+# M groups
+# n measurements in each group
+
+set.seed(seed)
+N <- n*M
+id <- rep(1:M, each = n)
+beta <- matrix(beta)
+gamma <- matrix(gamma)
+
+q_1 <- nrow(as.matrix(sigma_1))
+q_2 <- nrow(as.matrix(sigma_2))
+
+if(q_1 > 2) stop("max q = 2 for random effects")
+
+par.u <- generate.dist(fun = dist.u, n = M, q = q_1, sigma = sigma_1, shape = shape_1)
+par.e <- generate.dist(fun = dist.e, n = M, q = q_2, sigma = sigma_2, shape = shape_2)
+
+U <- replicate(R, do.call(par.u$fun, args = par.u[-1]))
+e <- replicate(R, do.call(par.e$fun, args = par.e[-1]))
+
+if(R == 1){
+u <- if(q_1 == 2) rep(U[,1,1], each = n) else rep(U, each = n)
+v <- if(q_1 == 2) rep(U[,2,1], each = n) else rep(0,N)
+e <- as.vector(t(e[,,1]))
+}
+
+if(R > 1){
+u <- if(q_1 == 2) apply(U[,1,], 2, function(x, n) rep(x, each = n), n = n) else apply(U, 2, function(x, n) rep(x, each = n), n = n)
+v <- if(q_1 == 2) apply(U[,2,], 2, function(x, n) rep(x, each = n), n = n) else rep(0,N)
+e <- apply(e, 3, function(x) t(x))
+
+}
+
+D <- replicate(R, generate.design(n = n, M = M, fixed = fixed))
+x <- D[,'x',]
+if(!is.matrix(x)) x <- matrix(x)
+
+y <- apply(D, 3, function(x,b) x%*%b, b = beta) + u + x*v + apply(x, 2, function(x,g) cbind(1,x)%*%g, g = gamma)*e
+ans <- list(Y = y, X = D, group = id, u = U, e = e)
+attr(ans, "call") <- match.call()
+attr(ans, "seed") <- seed
+return(ans)
+
+}
+
 
