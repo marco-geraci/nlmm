@@ -1,6 +1,6 @@
 \name{fixef.nlmm}
+\alias{fixef}
 \alias{fixef.nlmm}
-\alias{fixef.nlmm.counts}
 
 \title{
 Extract Generalized Mixed-Effects Models Coefficients
@@ -9,14 +9,16 @@ Extract Generalized Mixed-Effects Models Coefficients
 \code{fixef} extracts estimated fixed effects from \code{nlmm} objects.
 }
 \usage{
-\method{fixef}{nlmm}(object)
+\method{fixef}{nlmm}(object, ...)
 }
 
 \arguments{
   \item{object}{
-an \code{nlmm} or \code{nlmm.counts} object.
+a \code{nlmm} object.
 }
-
+  \item{\dots}{
+not used.
+}
 }
 
 \value{

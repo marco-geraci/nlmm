@@ -8,14 +8,15 @@ Control parameters for nlmm estimation
 A list of parameters for controlling the fitting process.
 }
 \usage{
-nlmmControl(method = "Nelder-Mead", nK = 8, multistart = TRUE, grid = c(0.001, 0.5, 0.999), alpha = c(0.5, 0.5), alpha.index = 9, lme = TRUE, lmeMethod = "REML", lmeOpt = "nlminb")
+nlmmControl(method = "nlminb", nK = 8, multistart = TRUE, grid = c(0.001, 0.5, 0.999),
+	alpha = c(0.5, 0.5), alpha.index = 9, tol = 1e-3, maxIter = 30, lme = TRUE,
+	lmeMethod = "REML", lmeOpt = "nlminb", verbose = FALSE)
 }
 
 \arguments{
   \item{method}{
-character vector that specifies the optimization algorithm in \code{\link{optim}} to fit a generalized Laplace mixed-effects model. Only \code{"Nelder-Mead"} has been tested.
+character vector that specifies the optimization algorithm to fit a generalized Laplace mixed-effects model. The default is \code{\link{nlminb}}. Otherwise, \code{\link{optim}} will be used with the specified method (e.g., \code{"Nelder-Mead"}).
 }
-
   \item{nK}{
 number of knots for each of the two quadratures.
 }
@@ -31,25 +32,36 @@ vector of length 2 with starting values between 0 and 1 for the parameter alpha 
   \item{alpha.index}{
 the estimation with parameter alpha is unconstrained if \code{alpha.index} is equal to 9 (default). If equal to 0, both shape parameters (random effects and error term) are constrained during estimation and set equal to \code{alpha}. If equal to 1, the first shape parameter (random effects) is constrained during estimation and set equal to the first element of \code{alpha}. If equal to 2, the second shape parameter (error term) is constrained during estimation and set equal to the second element of \code{alpha}.
 }
+  \item{tol}{
+  relative tolerance for convergence of the algorithm. See details.
+}
+  \item{maxIter}{
+  maximum number of iterations of the algorithm. See details.
+}
   \item{lme}{
 logical flag. Should \code{\link{lme}} be used to get starting values? If \code{FALSE}, \code{\link{lm}} is used instead.
 }
   \item{lmeMethod}{
-fitting method for \code{\link{lme}} when obtaining starting values. If "REML" the model is fit by maximizing the restricted log-likelihood. If "ML" the log-likelihood is maximized. This argument will have no effect when \code{lme} is called to obtain a Normal-Normal model.
+fitting method for \code{\link{lme}} when obtaining starting values. If "REML" the model is fit by maximizing the restricted log-likelihood. If "ML" the log-likelihood is maximized.
 }
   \item{lmeOpt}{
-optimization algorithm for \code{\link{lme}}. Either \code{\link{nlminb}} (the default) or \code{\link{optim}}. This is passed to argument \code{opt} in \code{\link{lmeControl}}. This argument will have an effect whenever \code{lme} is called (either to obtain starting values or to fit a Normal-Normal model).
+optimization algorithm for \code{\link{lme}}. Either either \code{\link{nlminb}} (the default) or \code{\link{optim}}. This is passed to argument \code{opt} in \code{\link{lmeControl}}.
+}
+  \item{verbose}{
+logical flag. If \code{TRUE}, information about the fitting process is printed out.
 }
 }
 
 \details{
-The estimation algorithm for fitting generalized Laplace mixed-effects (GLME) models is described in Geraci and Farcomeni (2019). For unconstrained estimation, it is recommended to leave the default arguments in \code{nlmmControl} unchanged. However, refer to Section 4.1 in Geraci and Farcomeni (2019) for potential numerical issues and solutions.
+The estimation algorithm for fitting generalized Laplace mixed-effects (GLME) models is described in Geraci and Farcomeni (2019). For unconstrained estimation, it is recommended to leave the default arguments in \code{nlmmControl} unchanged.
 
-Since the parameter alpha is bidimensional, care should be taken when increasing the number of quadrature knots \code{nK} since the total number of quadrature points is given by \eqn{nK^{2}}{nK^2}. For the same reason, care should be taken when providing the \code{grid} values for multi-start optimization since the total number of starting points will be \eqn{s^{2}}{s^2}, where \code{s = length(grid)}.
+The estimation algorithm optimize the (negative) log-integrated likelihood over the random effects, variance, and shape parameters first. Then updates the fixed effects and residuals scale parameters. The arguments \code{tol} and \code{maxIter} control the convergence parameters of this iterative process.
+
+Since the parameter alpha is bidimensional, care should be taken when increasing the number of quadrature knots \code{nK} since the total number of quadrature points is given by \eqn{2^{nK}}{2^nK}. For the same reason, care should be taken when providing the \code{grid} values for multi-start optimization since the total number of starting points will be \eqn{s^{2}}{s^2}, where \code{s = length(grid)}.
 
 If \code{alpha.index} is 1 (or 2), the first (or second) element of the alpha parameter is constrained during estimation and set equal to the corresponding value of \code{alpha}. The element of the alpha parameter that is \emph{unconstrained} is initialized with the corresponding element of \code{alpha} (if \code{multistart} is \code{FALSE}) or with values in \code{grid} (if \code{multistart} is \code{TRUE}).
 
-If \code{alpha.index} is 0, both elements of the alpha parameter are fixed and set equal to \code{alpha}. In this case, the argument \code{multistart} is ignored. If \code{alpha} is \code{c(0,0)}, the corresponding model is Normal-Normal and \code{\link{lme}} is used for fitting (only via maximum likelihood). Note that, in this case, \code{lmeOpt} can still be used to change optimization algorithm in \code{lme}.
+If \code{alpha.index} is 0, both elements of the alpha parameter are fixed and set equal to \code{alpha}. In this case, the argument \code{multistart} is ignored. If \code{alpha} is \code{c(0,0)}, the corresponding model is Normal-Normal and \code{\link{lme}} is used for fitting (only via maximum likelihood). Note that in this case, \code{lmeOpt} can still be used.
 }
 
 \value{
@@ -57,7 +69,7 @@ a list of control parameters.
 }
 
 \references{
-Geraci, M. and Farcomeni A (2019). A family of linear mixed-effects models using the generalized Laplace distribution. Unpublished Manuscript.
+Geraci, M. and Farcomeni A (2020). A family of linear mixed-effects models using the generalized Laplace distribution. Statistical Methods in Medical Research.
 }
 
 \author{

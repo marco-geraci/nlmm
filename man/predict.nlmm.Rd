@@ -30,7 +30,7 @@ a vector of predictions.
 }
 
 \references{
-Geraci, M. and Farcomeni A (2019). A family of linear mixed-effects models using the generalized Laplace distribution. Unpublished Manuscript.
+Geraci, M. and Farcomeni A (2020). A family of linear mixed-effects models using the generalized Laplace distribution. Statistical Methods in Medical Research.
 }
 
 \author{

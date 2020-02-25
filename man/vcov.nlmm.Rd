@@ -9,7 +9,7 @@ Calculate Variance-Covariance Matrix for a Fitted Generalized Laplace Mixed-Effe
 Returns the variance-covariance matrix of the all the parameters of a fitted \code{nlmm} object.
 }
 \usage{
-vcov.nlmm(object, ...)
+\method{vcov}{nlmm}(object, ...)
 }
 
 \arguments{

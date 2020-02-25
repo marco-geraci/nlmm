@@ -31,9 +31,6 @@ a non-null value for digits specifies the minimum number of significant digits t
 not used.
 }
 }
-\details{
-
-}
 
 \note{
 
@@ -54,7 +51,7 @@ An object of class \code{lrt_nlmm} is a list containing the following components
 
 }
 \references{
-Geraci, M. and Farcomeni A (2019). A family of linear mixed-effects models using the generalized Laplace distribution. Unpublished Manuscript.
+Geraci, M. and Farcomeni A (2020). A family of linear mixed-effects models using the generalized Laplace distribution. Statistical Methods in Medical Research.
 }
 \author{
 Marco Geraci and Alessio Farcomeni
@@ -65,22 +62,4 @@ Marco Geraci and Alessio Farcomeni
 }
 
 
-\examples{
-
-\dontrun{
-
-data(rats, package = "nlmm")
-
-# NN model
-fit0 <- nlmm(y ~ time*trt, random = ~ 1, group = id, data = rats, control = nlmmControl(alpha.index = 0, alpha = c(0,0)))
-
-# GL model
-fit1 <- nlmm(y ~ time*trt, random = ~ 1, group = id, data = rats)
-
-# LRT
-lrt_nlmm(fit0, fit1)
-
-}
- 
-}
 \keyword{Likelihood ratio test}
