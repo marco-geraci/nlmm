@@ -1,14 +1,10 @@
-################################################################################
-# This is copyrighted material by Marco Geraci, University of South Carolina.
-# All Rights Reserved.
-################################################################################
-
-
 #########################################################
 ### Fitting
 #########################################################
 
-nlmmControl <- function(method = "Nelder-Mead", nK = 8, multistart = TRUE, grid = c(0.001, 0.5, 0.999), alpha = c(0.5, 0.5), alpha.index = 9, lme = TRUE, lmeMethod = "REML", lmeOpt = "nlminb"){
+# Fix estimation: obtain random effects and variance parameters first
+
+nlmmControl <- function(method = "nlminb", nK = 8, multistart = TRUE, grid = c(0.001, 0.5, 0.999), alpha = c(0.5, 0.5), alpha.index = 9, tol = 1e-3, maxIter = 30, lme = TRUE, lmeMethod = "REML", lmeOpt = "nlminb", verbose = FALSE){
 
 if(length(alpha) != 2) stop("Provide starting values for alpha")
 if(!alpha.index %in% c(0,1,2,9)) stop("alpha.index is one of c(0,1,2,9)")
@@ -20,7 +16,161 @@ if(any(grid < 0 | grid > 1)) stop("values for alpha.grid must be between 0 and 1
 # 2 = second alpha fixed
 # 9 = both alpha free
 
-list(method = method, nK = nK, multistart = multistart, grid = grid, alpha = alpha, alpha.index = alpha.index, lme = lme, lmeMethod = lmeMethod, lmeOpt = lmeOpt)
+list(method = method, nK = nK, multistart = multistart, grid = grid, alpha = alpha, alpha.index = alpha.index, tol = tol, maxIter = maxIter, lme = lme, lmeMethod = lmeMethod, lmeOpt = lmeOpt, verbose = verbose)
+
+}
+
+nlmm.fit <- function(args, control){
+
+vf <- args$vf
+dim_theta_w <- length(coef(vf))
+P <- args$P
+S <- args$S
+
+iter <- 0
+while(iter <= control$maxIter){
+	# get estimate of theta_z and tau
+	myargs <- args
+	myargs$theta_x <- args$theta[1:P]
+	myargs$sigma <- exp(args$theta[P + S + 3])
+	#if(dim_theta_w > 0){
+	#	theta_w <- rev(rev(args$theta)[1:dim_theta_w])
+	#	coef(myargs$vf) <- theta_w
+	#} 
+		
+	oldPars1 <- c(args$theta[(P + 1):(P + S)], args$theta[(P + S + 1) : (P + S + 2)])
+	if(control$method == "nlminb"){
+		fit <- do.call(nlminb, args = c(list(objective = loglik_reStruct_nlmm, start = oldPars1, control = list(trace = 0)), myargs[-c(match(c("theta"), names(myargs)))]))
+		names(fit)[names(fit) == "objective"] <- "value"
+	} else {
+		fit <- do.call(optim, args = c(list(fn = loglik_reStruct_nlmm, par = oldPars1, method = control$method, control = list(trace = 0)), myargs[-c(match(c("theta"), names(myargs)))]))
+	}
+	newPars1 <- fit$par	
+
+	if(control$verbose){
+		cat("Iteration", iter + 1, "\n")
+		cat("Estimate:", oldPars1, "\n")
+		cat("Value:", fit$value, "\n")
+	}
+
+	# update theta with theta_z and tau
+	args$theta[(P + 1):(P + S)] <- newPars1[1:S] # theta_z
+	args$theta[(P + S + 1):(P + S + 2)] <- newPars1[(S + 1):(S + 2)] # tau
+	
+	# get estimate of theta_x, phi and theta_w
+	myargs <- args
+	myargs$theta_z <- args$theta[(P + 1):(P + S)]
+	myargs$tau <- args$theta[(P + S + 1):(P + S + 2)]
+	if(dim_theta_w > 0){
+		theta_w <- coef(args$vf)
+	} else {
+		theta_w <- NULL
+	}
+
+	oldPars2 <- c(args$theta[1:P], args$theta[P + S + 3], theta_w)
+	if(control$method == "nlminb"){
+		fit <- do.call(nlminb, args = c(list(objective = loglik_fixed_nlmm, start = oldPars2, control = list(trace = 0)), myargs[-c(match(c("theta"), names(myargs)))]))
+		names(fit)[names(fit) == "objective"] <- "value"
+	} else {
+		fit <- do.call(optim, args = c(list(fn = loglik_fixed_nlmm, par = oldPars2, method = control$method, control = list(trace = 0)), myargs[-c(match(c("theta"), names(myargs)))]))
+	}
+	newPars2 <- fit$par	
+	
+	# update theta with theta_z, phi and theta_w
+	args$theta[1:P] <- newPars2[1:P] # theta_x
+	args$theta[P + S + 3] <- newPars2[P + 1] # phi
+	if(dim_theta_w > 0){
+		theta_w <- rev(rev(newPars2)[1:dim_theta_w])
+		coef(args$vf) <- args$theta[(P + S + 3 + 1):(P + S + 3 + dim_theta_w)] <- theta_w # theta_w
+	} 
+
+	# check convergence
+	iter <- iter + 1
+	delta <- abs((oldPars1- newPars1)/ifelse(newPars1 == 0, 1, newPars1))
+	if(control$verbose) cat("Delta:", delta, "\n")
+	if (max(delta) <= control$tol) {
+		break	
+	}
+    if (iter > control$maxIter) {
+		msg <- gettext("maximum number of iterations (nlmmControl(maxIter)) reached without convergence")
+		warning(msg, domain = NA)
+    }
+}
+
+# update likelihood
+val <- do.call(loglik_nlmm, args = args)
+ans <- list(par = args$theta, value = val, iter = iter)
+
+return(ans)
+
+}
+
+loglik_reStruct_nlmm <- function(theta, y, x, z, group, nK, P, Q, S, M, N, cov_name, vf, theta_x, sigma){
+
+w <- varWeights(vf)
+y <- y*w
+x <- sweep(x, 1, w, "*")
+z <- sweep(z, 1, w, "*")
+
+Y <- split(y, group)
+Y <- lapply(Y, function(x) matrix(x, nrow = 1))
+ni <- as.numeric(table(group))
+
+theta_z <- theta[1:S]
+tau <- theta[(S + 1):(S + 2)]
+alpha <- invlogit(tau) # inverse logit
+Sigma1 <- as.matrix(pdMat(value = theta_z, pdClass = cov_name, nam = 1:Q))*sigma^2
+Sigma2 <- mapply(function(x, sigma) diag(sigma^2, x, x), ni, MoreArgs = list(sigma = sigma), SIMPLIFY = FALSE)
+
+# quadrature
+q1 <- gauss.quad.prob(nK, "gamma", alpha = min(1/alpha[1], 1e10), beta = 1)
+q2 <- gauss.quad.prob(nK, "gamma", alpha = min(1/alpha[2], 1e10), beta = 1)
+QUAD <- list(nodes = cbind(q1$nodes, q2$nodes), weights = cbind(q1$weights, q2$weights))
+
+val <- C_ll(knots = QUAD$nodes, weights = QUAD$weights, beta = theta_x, Sigma1 = Sigma1, Sigma2 = Sigma2, Y = Y, x = x, z = z, M = M, N = N, ni = ni, P = P, Q = Q, K = nK)
+
+# differential
+val <- val + sum(log(w))
+
+# negative integrated log-likelihood
+return(-val)
+
+}
+
+loglik_fixed_nlmm <- function(theta, y, x, z, group, nK, P, Q, S, M, N, cov_name, vf, theta_z, tau){
+
+dim_theta_w <- length(coef(vf))
+if(dim_theta_w > 0){
+	theta_w <- rev(rev(theta)[1:dim_theta_w])
+	coef(vf) <- theta_w
+}
+w <- varWeights(vf)
+y <- y*w
+x <- sweep(x, 1, w, "*")
+z <- sweep(z, 1, w, "*")
+
+Y <- split(y, group)
+Y <- lapply(Y, function(x) matrix(x, nrow = 1))
+ni <- as.numeric(table(group))
+
+theta_x <- theta[1:P]
+alpha <- invlogit(tau) # inverse logit
+sigma <- exp(theta[P + 1]) # inverse log
+Sigma1 <- as.matrix(pdMat(value = theta_z, pdClass = cov_name, nam = 1:Q))*sigma^2
+Sigma2 <- mapply(function(x, sigma) diag(sigma^2, x, x), ni, MoreArgs = list(sigma = sigma), SIMPLIFY = FALSE)
+
+# quadrature
+q1 <- gauss.quad.prob(nK, "gamma", alpha = min(1/alpha[1], 1e10), beta = 1)
+q2 <- gauss.quad.prob(nK, "gamma", alpha = min(1/alpha[2], 1e10), beta = 1)
+QUAD <- list(nodes = cbind(q1$nodes, q2$nodes), weights = cbind(q1$weights, q2$weights))
+
+val <- C_ll(knots = QUAD$nodes, weights = QUAD$weights, beta = theta_x, Sigma1 = Sigma1, Sigma2 = Sigma2, Y = Y, x = x, z = z, M = M, N = N, ni = ni, P = P, Q = Q, K = nK)
+
+# differential
+val <- val + sum(log(w))
+
+# negative integrated log-likelihood
+return(-val)
 
 }
 
@@ -188,6 +338,16 @@ if(control$alpha.index == 0){
 
 	#if(sc == "Normal-Normal") cat("Both alphas are fixed to 0. Fitting a standard linear mixed model with 'nlmm'. Consider using 'lme' instead", "\n")
 }
+
+if(sc == "Normal-Normal"){
+	cat("Both alphas are fixed to 0. Fitting a standard linear mixed model with 'lme'", "\n")
+	reStruct <- list(group = nlme::pdMat(random, pdClass = cov_name))
+	names(reStruct) <- as.character(group)
+	lmeFit <- nlme::lme(fixed = fixed, random = reStruct, weights = weights, data = dataMix, method = "ML", control = lmeControl(opt = control$lmeOpt))
+	ans <- lme2nlmm(x = lmeFit, Call = Call, mmf = mmf, mmr = mmr, y = y, revOrder = revOrder, vf = vf, contr = contr, grp = grp, control = control, cov_name = cov_name, mfArgs = mfArgs)
+	return(ans)
+
+}
 # initialize
 if(control$lme){
 	reStruct <- list(group = nlme::pdMat(random, pdClass = cov_name))
@@ -195,7 +355,7 @@ if(control$lme){
 	lmeFit <- nlme::lme(fixed = fixed, random = reStruct, weights = weights, data = dataMix, method = control$lmeMethod, control = lmeControl(opt = control$lmeOpt))
 	theta_x <- as.numeric(lmeFit$coefficients$fixed)
 	theta_z <- as.numeric(coef(lmeFit[[1]]$reStruct)) # log-Cholesky scale
-	theta_w <- as.numeric(coef(lmeFit[[1]]$varStruct, unconstrained = TRUE)) # numeric(0) if coef is NULL
+	theta_w <- as.numeric(coef(lmeFit[[1]]$varStruct)) # numeric(0) if coef is NULL
 	phi_0 <- log(lmeFit$sigma) # log scale
 } else {
 	lmFit <- lm(y ~ mmf - 1)
@@ -216,15 +376,6 @@ if(!fit){
 	return(FIT_ARGS)
 }
 
-if(sc == "Normal-Normal"){
-	cat("Both alphas are fixed to 0. Fitting a standard linear mixed model with 'lme(..., method = 'ML')'", "\n")
-	reStruct <- list(group = nlme::pdMat(random, pdClass = cov_name))
-	names(reStruct) <- as.character(group)
-	lmeFit <- nlme::lme(fixed = fixed, random = reStruct, weights = weights, data = dataMix, method = "ML", control = lmeControl(opt = control$lmeOpt))
-	ans <- lme2nlmm(x = lmeFit, Call = Call, mmf = mmf, mmr = mmr, y = y, revOrder = revOrder, vf = vf, contr = contr, grp = grp, control = control, cov_name = cov_name, mfArgs = mfArgs)
-	return(ans)
-
-}
 
 if(control$multistart & control$alpha.index == 0){
 	control$multistart <- FALSE
@@ -254,7 +405,7 @@ if(control$multistart){
 			FIT_ARGS$index <- control$alpha.index
 			tmp[[k]] <- do.call(optim, args = c(list(fn = loglik_alpha_nlmm, par = FIT_ARGS$theta, method = control$method, control = list(trace = 0)), FIT_ARGS[-c(match(c("theta"), names(FIT_ARGS)))]))
 		} else {
-			tmp[[k]] <- do.call(optim, args = c(list(fn = loglik_nlmm, par = FIT_ARGS$theta, method = control$method, control = list(trace = 0)), FIT_ARGS[-c(match(c("theta"), names(FIT_ARGS)))]))
+			tmp[[k]] <- nlmm.fit(FIT_ARGS, control)
 		}
 	}
 	close(pb)
@@ -264,7 +415,7 @@ if(control$multistart){
 } else {
 
 	if(control$alpha.index == 9){
-		fit <- do.call(optim, args = c(list(fn = loglik_nlmm, par = FIT_ARGS$theta, method = control$method, control = list(trace = 0)), FIT_ARGS[-c(match(c("theta"), names(FIT_ARGS)))]))
+		fit <- nlmm.fit(FIT_ARGS, control)
 	} else {
 		sel <- if(control$alpha.index == 0) 1:2 else control$alpha.index
 		FIT_ARGS$tau <- tau[sel]
@@ -285,6 +436,7 @@ if(control$alpha.index == 0){
 	fit$tau <- logit(fit$alpha, omega = 0.001)
 	fit$phi <- fit$par[dim_theta[1] + dim_theta_z + 1]
 	fit$sigma <- exp(fit$phi)
+	df_alpha <- 0
 }
 
 if(control$alpha.index == 1){
@@ -292,6 +444,7 @@ if(control$alpha.index == 1){
 	fit$tau <- logit(fit$alpha, omega = 0.001)
 	fit$phi <- fit$par[dim_theta[1] + dim_theta_z + 2]
 	fit$sigma <- exp(fit$phi)
+	df_alpha <- 1
 }
 
 if(control$alpha.index == 2){
@@ -299,6 +452,7 @@ if(control$alpha.index == 2){
 	fit$tau <- logit(fit$alpha, omega = 0.001)
 	fit$phi <- fit$par[dim_theta[1] + dim_theta_z + 2]
 	fit$sigma <- exp(fit$phi)
+	df_alpha <- 1
 }
 
 if(control$alpha.index == 9){
@@ -306,6 +460,7 @@ if(control$alpha.index == 9){
 	fit$tau <- logit(fit$alpha, omega = 0.001)
 	fit$phi <- fit$par[dim_theta[1] + dim_theta_z + 3]
 	fit$sigma <- exp(fit$phi)
+	df_alpha <- 2
 }
 
 if(dim_theta_w > 0){
@@ -322,7 +477,7 @@ fit$dim_theta <- dim_theta
 fit$dim_theta_z <- dim_theta_z
 fit$edf <- fit$dim_theta[1] + fit$dim_theta_z
 fit$rdf <- fit$nobs - fit$edf
-fit$df <- dim_theta[1] + dim_theta_z + 1
+fit$df <- dim_theta[1] + dim_theta_z + df_alpha + 1
 fit$mmf <- mmf
 fit$mmr <- mmr
 fit$y <- y
@@ -361,7 +516,7 @@ P <- function(idx){
 ans <- numeric(n + 1L)
 ans[1] <- pmvnorm(rep(0, n), rep(Inf, n), sigma = solve(V))[[1]]
 ans[n + 1L] <- pmvnorm(rep(0, n), rep(Inf, n), sigma = V)[[1]]
-for (i in safeseq(1L, n - 1L, by = 1L)) ans[i + 1] = sum(combn(n, i, P))
+for (i in safeseq(1L, n - 1L, by = 1L)) ans[i + 1] = sum(combn(x = n, m = i, FUN = P)) # utils::combn
 ans
 }
 
@@ -386,62 +541,47 @@ if(!alpha.index %in% c(0, 1, 2)) stop("This fitted model is not constrained. 'al
 
 FIT_ARGS <- list(theta = object$InitialPar$theta, y = object$y, x = object$mmf, z = object$mmr, group = object$group, nK = object$control$nK, P = object$dim_theta[1], Q = object$dim_theta[2], S = object$dim_theta_z, M = object$ngroups, N = length(object$y), cov_name = object$cov_name, vf = object$vf)
 # Modify FIT_ARGS$theta as it was an unconstrained fit
-dim_theta_w <- length(coef(object$vf))
-if(dim_theta_w > 0){
-	theta_w <- coef(object$vf, unconstrained = TRUE)
-} else {
-	theta_w <- NULL
-}
-FIT_ARGS$theta <- c(object$theta_x, object$theta_z, object$tau, object$phi, theta_w)
-alpha <- object$alpha 
+FIT_ARGS$theta <- c(object$theta_x, object$theta_z, object$tau, object$phi)
 
 if(alpha.index == 0){
 
-       f <- function(tau_tilde, MoreArgs, alpha){
-             P <- MoreArgs$P
-             S <- MoreArgs$S
-             alpha_tilde <- invlogit(tau_tilde)
-             tau <- MoreArgs$theta[(P + S + 1):(P + S + 2)]
-             tau[1] <- if(alpha[1] == 1) logit(1 - alpha_tilde[1], omega = 1e-3) else if(alpha[1] == 0) tau_tilde[1] else tau[1]
-             tau[2] <- if(alpha[2] == 1) logit(1 - alpha_tilde[2], omega = 1e-3) else if(alpha[2] == 0) tau_tilde[2] else tau[2]
-             MoreArgs$theta[(P + S + 1):(P + S + 2)] <- tau
-             do.call(loglik_nlmm, args = MoreArgs)
-       }
-
-val <- hessian(func = f, x = logit(c(0, 0), omega = 1e-3), method = "Richardson", MoreArgs = FIT_ARGS, alpha = alpha)
+	f <- function(tau, MoreArgs){
+		P <- MoreArgs$P
+		S <- MoreArgs$S
+		MoreArgs$theta[(P + S + 1):(P + S + 2)] <- tau
+		do.call(loglik_nlmm, args = MoreArgs)
+	}
+	
+#val <- hessian(func = f, x = object$tau, method = "Richardson", MoreArgs = FIT_ARGS)
+val <- hessian(func = f, x = logit(c(0, 0), omega = 1e-5), method = "Richardson", MoreArgs = FIT_ARGS)
 
 }
 
 if(alpha.index == 1){
 
-       f <- function(tau_tilde, MoreArgs, alpha){
-             P <- MoreArgs$P
-             S <- MoreArgs$S
-             alpha_tilde <- invlogit(tau_tilde)
-             tau <- if(alpha[1] == 1) logit(1 - alpha_tilde, omega = 1e-3) else tau_tilde
-             MoreArgs$theta[(P + S + 1)] <- tau
-             do.call(loglik_nlmm, args = MoreArgs)
-       }
-       
-val <- hessian(func = f, x = logit(0, omega = 1e-3), method = "Richardson", MoreArgs = FIT_ARGS, alpha = alpha)
+	f <- function(tau, MoreArgs){
+		P <- MoreArgs$P
+		S <- MoreArgs$S
+		MoreArgs$theta[(P + S + 1)] <- tau
+		do.call(loglik_nlmm, args = MoreArgs)
+	}
+	
+val <- hessian(func = f, x = object$tau[1], method = "Richardson", MoreArgs = FIT_ARGS)
 
 }
 
 if(alpha.index == 2){
 
-       f <- function(tau_tilde, MoreArgs, alpha){
-             P <- MoreArgs$P
-             S <- MoreArgs$S
-             alpha_tilde <- invlogit(tau_tilde)
-             tau <- if(alpha[2] == 1) logit(1 - alpha_tilde, omega = 1e-3) else tau_tilde
-             MoreArgs$theta[(P + S + 2)] <- tau
-             do.call(loglik_nlmm, args = MoreArgs)
-       }
-       
-val <- hessian(func = f, x = logit(0, omega = 1e-3), method = "Richardson", MoreArgs = FIT_ARGS, alpha = alpha)
+	f <- function(tau, MoreArgs){
+		P <- MoreArgs$P
+		S <- MoreArgs$S
+		MoreArgs$theta[(P + S + 2)] <- tau
+		do.call(loglik_nlmm, args = MoreArgs)
+	}
+	
+val <- hessian(func = f, x = object$tau[2], method = "Richardson", MoreArgs = FIT_ARGS)
 
 }
-
 
 if(!is.positive.definite(val)){
 	val <- make.positive.definite(val)
@@ -492,16 +632,22 @@ ans
 ### Methods
 #########################################################
 
-fixef.nlmm <- function(object){
+fixef.nlmm <- function(object, ...){
 
 return(object$theta_x)
 
 }
 
 logLik.nlmm <- function(object, ...){
+	ans <- object$value
+	attr(ans, "df") <- object$df
+	return(-ans)
 
-	return(-object$value)
+}
 
+AIC.nlmm <- function(object, ..., k = 2){
+	val <- logLik(object)
+	-2*val + k*attr(val, "df")
 }
 
 predict.nlmm <- function(object, level = 0, ...){
@@ -550,9 +696,9 @@ vv <- 1/w^2
 vv <- split(vv, group)
 
 if(object$sc == "Normal-Normal"){
-	Sigma2 <- lapply(vv, function(x, sigma) diag(x = x, length(x), length(x))*sigma^2, sigma = object$sigma)
+	Sigma2 <- lapply(vv, function(x, sigma) diag(x = x)*sigma^2, sigma = object$sigma)
 } else {
-	Sigma2 <- lapply(vv, function(x, sigma, alpha) diag(x = x, length(x), length(x))*sigma^2/alpha, sigma = object$sigma, alpha = alpha["Error"])
+	Sigma2 <- lapply(vv, function(x, sigma, alpha) diag(x = x)*sigma^2/alpha, sigma = object$sigma, alpha = alpha["Error"])
 }
 
 RES <- split(object$y - object$mmf %*% matrix(object$theta_x), group)
@@ -800,9 +946,8 @@ lme2nlmm <- function(x, Call, mmf, mmr, y, revOrder, vf, contr, grp, control, co
 	theta_w <- as.numeric(coef(x[[1]]$varStruct)) # numeric(0) if coef is NULL
 	sigma <- x$sigma
 	phi <- log(sigma) # log scale
+	tau <- c(Inf, Inf)
 	alpha <- c(0, 0)
-	#tau <- c(Inf, Inf)
-	tau <- logit(alpha, omega = 0.001)
 	theta <- c(theta_x, theta_z, phi)
 	coef(vf) <- theta_w
 	nn <- colnames(mmf)
@@ -868,14 +1013,6 @@ dgl <- function(x, mu = 0, sigma = 1, shape = 1, log = FALSE){
 # sigma = scale
 # variance = shape*sigma^2
 
-n <- length(x)
-if(length(mu) == 1) mu <- rep(mu, n)
-if(length(sigma) == 1) sigma <- rep(sigma, n)
-if(length(shape) == 1) shape <- rep(shape, n)
-if(length(mu) != n) stop("'mu' must be a vector of 1 or of the same length of x")
-if(length(sigma) != n) stop("'sigma' must be a vector of 1 or of the same length of x")
-if(length(shape) != n) stop("'shape' must be a vector of 1 or of the same length of x")
-
 p <- shape - 1/2
 
 val1 <- sqrt(2)/(sigma^(p + 1)*gamma(shape)*sqrt(pi))
@@ -900,20 +1037,14 @@ pgl <- function(x, mu = 0, sigma = 1, shape = 1, lower.tail = TRUE, log.p = FALS
 
 n <- length(x)
 val <- rep(NA, n)
-if(length(mu) == 1) mu <- rep(mu, n)
-if(length(sigma) == 1) sigma <- rep(sigma, n)
-if(length(shape) == 1) shape <- rep(shape, n)
-if(length(mu) != n) stop("'mu' must be a vector of 1 or of the same length of x")
-if(length(sigma) != n) stop("'sigma' must be a vector of 1 or of the same length of x")
-if(length(shape) != n) stop("'shape' must be a vector of 1 or of the same length of x")
 	
 if(lower.tail){
 	for(i in 1:n){
-		val[i] <- integrate(dgl, lower = -Inf, upper = x[i], mu = mu[i], sigma = sigma[i], shape = shape[i])$value
+		val[i] <- integrate(dgl, lower = -Inf, upper = x[i], mu = mu, sigma = sigma, shape = shape)$value
 	}
 } else {
 	for(i in 1:n){
-		val[i] <- integrate(dgl, lower = x[i], upper = Inf, mu = mu[i], sigma = sigma[i], shape = shape[i])$value
+		val[i] <- integrate(dgl, lower = x[i], upper = Inf, mu = mu, sigma = sigma, shape = shape)$value
 	}
 }
 
@@ -932,15 +1063,6 @@ qgl <- function(p, mu = 0, sigma = 1, shape = 1, lower.tail = TRUE, log.p = FALS
 # sigma = scale
 # variance = shape*sigma^2
 
-n <- length(p)
-
-if(length(mu) == 1) mu <- rep(mu, n)
-if(length(sigma) == 1) sigma <- rep(sigma, n)
-if(length(shape) == 1) shape <- rep(shape, n)
-if(length(mu) != n) stop("'mu' must be a vector of 1 or of the same length of x")
-if(length(sigma) != n) stop("'sigma' must be a vector of 1 or of the same length of x")
-if(length(shape) != n) stop("'shape' must be a vector of 1 or of the same length of x")
-
 if(log.p) p <- exp(p)
 
 f <- function(x, p, mu, sigma, shape){
@@ -948,13 +1070,13 @@ f <- function(x, p, mu, sigma, shape){
 }
 
 V <- shape*sigma^2
+n <- length(p)
 val <- rep(NA, n)
 for(i in 1:n){
-	 tmp <- try(uniroot(f, p = p[i], mu = mu[i], sigma = sigma[i], shape = shape[i], interval = c(mu[i] - 20*sqrt(V[i]), mu[i] + 20*sqrt(V[i]))), silent = TRUE)
-	 if(!inherits(tmp, "try-error")) val[i] <- tmp$root
+	val[i] <- uniroot(f, p = p[i], mu = mu, sigma = sigma, shape = shape, interval = c(mu - 20*sqrt(V), mu + 20*sqrt(V)))$root
 }
 
-val[p == 0.5] <- mu[p == 0.5]
+val[p == 0.5] <- mu 
 
 if(!lower.tail) val <- -val
 
@@ -1053,144 +1175,4 @@ attr(val, "scale") <- W
 
 return(val)
 }
-
-
-################################################################################
-# R code to generate data in the simulation study 'A family of linear mixed-effects models using the generalized Laplace distribution' by Geraci and Farcomeni
-################################################################################
-
-slash <- function(n, mean, sd){
-	val <- rnorm(n, mean = mean, sd = sd)/runif(n)
-	return(val)
-}
-
-generate.dist <- function(fun, n, q, sigma, shape){
-
-if(q == 1){
-	if(fun == "norm"){
-		fun <- rnorm
-		return(list(fun = fun, n = n, mean = 0, sd = sigma))
-	}
-
-	if(fun == "laplace"){
-		fun <- rl
-		return(list(fun = fun, n = n, mu = 0, sigma = sigma))
-	}
-
-	if(fun == "genlaplace"){
-		fun <- rmgl
-		return(list(fun = fun, n = n, mu = rep(0, 1), sigma = as.matrix(sigma), shape = shape))
-	}
-	
-	if(fun == "chisq"){
-		fun <- rchisq
-		return(list(fun = fun, n = n, df = sigma))
-	}
-
-	if(fun == "t"){
-		fun <- rt
-		return(list(fun = fun, n = n, df = shape))
-	}
-
-	if(fun == "slash"){
-		fun <- slash
-		return(list(fun = fun, n = n, mean = 0, sd = sigma))
-	}
-
-
-}
-
-if(q > 1){
-	if(fun == "norm"){
-		fun <- rmvnorm
-		return(list(fun = fun, n = n, mean = rep(0, q), sigma = sigma))
-	}
-
-	if(fun == "laplace"){
-		fun <- rmal
-		return(list(fun = fun, n = n, mu = rep(0, q), sigma = sigma))
-	}
-	
-	if(fun == "genlaplace"){
-		fun <- rmgl
-		return(list(fun = fun, n = n, mu = rep(0, q), sigma = sigma, shape = shape))
-	}
-
-	if(fun == "t"){
-		fun <- rmvt
-		return(list(fun = fun, n = n, sigma = sigma, df = shape))
-	}
-
-}
-
-}
-
-generate.design <- function(n, M, fixed = FALSE){
-
-# M groups
-# n measurements in each group
-
-N <- n*M
-if(fixed){
-	x <- rep(1:n, M)
-	z <- rbinom(n = N, size = 1, prob = 0.5)
-} else {
-	delta <- rnorm(M, 0, 1)
-	zeta <- rnorm(N, 0, 1)
-	x <- rep(delta, each = n) + zeta
-	z <- rbinom(n = N, size = 1, prob = 0.5)
-}
-
-X <- cbind(1, x, z)
-colnames(X) <- c("intercept","x","z")
-X
-}
-
-generate.data <- function(R, n, M, sigma_1 = NULL, sigma_2 = NULL, shape_1 = NULL, shape_2 = NULL, dist.u, dist.e, beta, gamma, fixed = FALSE, seed = round(runif(1,1,1000))){
-
-# M groups
-# n measurements in each group
-
-set.seed(seed)
-N <- n*M
-id <- rep(1:M, each = n)
-beta <- matrix(beta)
-gamma <- matrix(gamma)
-
-q_1 <- nrow(as.matrix(sigma_1))
-q_2 <- nrow(as.matrix(sigma_2))
-
-if(q_1 > 2) stop("max q = 2 for random effects")
-
-par.u <- generate.dist(fun = dist.u, n = M, q = q_1, sigma = sigma_1, shape = shape_1)
-par.e <- generate.dist(fun = dist.e, n = M, q = q_2, sigma = sigma_2, shape = shape_2)
-
-U <- replicate(R, do.call(par.u$fun, args = par.u[-1]))
-e <- replicate(R, do.call(par.e$fun, args = par.e[-1]))
-
-if(R == 1){
-u <- if(q_1 == 2) rep(U[,1,1], each = n) else rep(U, each = n)
-v <- if(q_1 == 2) rep(U[,2,1], each = n) else rep(0,N)
-e <- as.vector(t(e[,,1]))
-}
-
-if(R > 1){
-u <- if(q_1 == 2) apply(U[,1,], 2, function(x, n) rep(x, each = n), n = n) else apply(U, 2, function(x, n) rep(x, each = n), n = n)
-v <- if(q_1 == 2) apply(U[,2,], 2, function(x, n) rep(x, each = n), n = n) else rep(0,N)
-e <- apply(e, 3, function(x) t(x))
-
-}
-
-D <- replicate(R, generate.design(n = n, M = M, fixed = fixed))
-x <- D[,'x',]
-if(!is.matrix(x)) x <- matrix(x)
-
-y <- apply(D, 3, function(x,b) x%*%b, b = beta) + u + x*v + apply(x, 2, function(x,g) cbind(1,x)%*%g, g = gamma)*e
-ans <- list(Y = y, X = D, group = id, u = U, e = e)
-attr(ans, "call") <- match.call()
-attr(ans, "seed") <- seed
-return(ans)
-
-}
-
 
