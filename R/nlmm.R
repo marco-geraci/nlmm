@@ -1,3 +1,22 @@
+###            nlmm: Generalized Laplace Mixed-Effects Models
+#
+#  This program is free software; you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation; either version 3 of the License or
+#  any later version.
+#
+#  This program is distributed without any warranty,
+#
+#  A copy of the GNU General Public License is available at
+#  http://www.r-project.org/Licenses/
+#
+
+".onAttach" <- function(lib, pkg) {
+    if(interactive() || getOption("verbose"))
+	packageStartupMessage(sprintf("Package %s (%s) loaded. Type citation(\"%s\") on how to cite this package\n", pkg,
+		packageDescription(pkg)$Version, pkg))
+}
+
 #########################################################
 ### Fitting
 #########################################################
@@ -403,7 +422,13 @@ if(control$multistart){
 		if(FLAG){
 			FIT_ARGS$tau <- tau[control$alpha.index]
 			FIT_ARGS$index <- control$alpha.index
-			tmp[[k]] <- do.call(optim, args = c(list(fn = loglik_alpha_nlmm, par = FIT_ARGS$theta, method = control$method, control = list(trace = 0)), FIT_ARGS[-c(match(c("theta"), names(FIT_ARGS)))]))
+			
+			if(control$method == "nlminb"){
+				tmp[[k]] <- do.call(nlminb, args = c(list(objective = loglik_alpha_nlmm, start = FIT_ARGS$theta, control = list(trace = 0)), FIT_ARGS[-c(match(c("theta"), names(FIT_ARGS)))]))
+				names(tmp[[k]])[names(tmp[[k]]) == "objective"] <- "value"
+			} else {
+				tmp[[k]] <- do.call(optim, args = c(list(fn = loglik_alpha_nlmm, par = FIT_ARGS$theta, method = control$method, control = list(trace = 0)), FIT_ARGS[-c(match(c("theta"), names(FIT_ARGS)))]))
+			}
 		} else {
 			tmp[[k]] <- nlmm.fit(FIT_ARGS, control)
 		}
@@ -413,14 +438,19 @@ if(control$multistart){
 	fit <- tmp[[sel]]
 	theta_0 <- c(theta_x, theta_z, tau.grid[sel,], phi_0, theta_w)
 } else {
-
 	if(control$alpha.index == 9){
 		fit <- nlmm.fit(FIT_ARGS, control)
 	} else {
 		sel <- if(control$alpha.index == 0) 1:2 else control$alpha.index
 		FIT_ARGS$tau <- tau[sel]
 		FIT_ARGS$index <- control$alpha.index
-		fit <- do.call(optim, args = c(list(fn = loglik_alpha_nlmm, par = FIT_ARGS$theta, method = control$method, control = list(trace = 0)), FIT_ARGS[-c(match(c("theta"), names(FIT_ARGS)))]))
+		
+		if(control$method == "nlminb"){
+			fit <- do.call(nlminb, args = c(list(objective = loglik_alpha_nlmm, start = FIT_ARGS$theta, control = list(trace = 0)), FIT_ARGS[-c(match(c("theta"), names(FIT_ARGS)))]))
+			names(fit)[names(fit) == "objective"] <- "value"
+		} else {
+			fit <- do.call(optim, args = c(list(fn = loglik_alpha_nlmm, par = FIT_ARGS$theta, method = control$method, control = list(trace = 0)), FIT_ARGS[-c(match(c("theta"), names(FIT_ARGS)))]))
+		}
 	}
 }
 
