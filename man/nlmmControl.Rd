@@ -27,7 +27,7 @@ logical flag. If \code{TRUE} (default), the algorithm is run with multiple start
 a vector of values for multi-start optimization. It can be used in conjunction with constrained estimation.
 }
   \item{alpha}{
-vector of length 2 with starting values between 0 and 1 for the parameter alpha (ignored if multistart is \code{TRUE}) or values at which alpha is constrained if \code{alpha.index} is one of 0, 1, or 2. The first element is for the shape parameter of the random effects, the second for the error term. See Geraci and Farcomeni (2019).
+vector of length 2 with starting values between 0 and 1 for the parameter alpha (ignored if multistart is \code{TRUE}) or values at which alpha is constrained if \code{alpha.index} is one of 0, 1, or 2. The first element is for the shape parameter of the random effects, the second for the error term. See Geraci and Farcomeni (2020).
 }
   \item{alpha.index}{
 the estimation with parameter alpha is unconstrained if \code{alpha.index} is equal to 9 (default). If equal to 0, both shape parameters (random effects and error term) are constrained during estimation and set equal to \code{alpha}. If equal to 1, the first shape parameter (random effects) is constrained during estimation and set equal to the first element of \code{alpha}. If equal to 2, the second shape parameter (error term) is constrained during estimation and set equal to the second element of \code{alpha}.
@@ -53,7 +53,7 @@ logical flag. If \code{TRUE}, information about the fitting process is printed o
 }
 
 \details{
-The estimation algorithm for fitting generalized Laplace mixed-effects (GLME) models is described in Geraci and Farcomeni (2019). For unconstrained estimation, it is recommended to leave the default arguments in \code{nlmmControl} unchanged.
+The estimation algorithm for fitting generalized Laplace mixed-effects (GLME) models is described in Geraci and Farcomeni (2020). For unconstrained estimation, it is recommended to leave the default arguments in \code{nlmmControl} unchanged.
 
 The estimation algorithm optimize the (negative) log-integrated likelihood over the random effects, variance, and shape parameters first. Then updates the fixed effects and residuals scale parameters. The arguments \code{tol} and \code{maxIter} control the convergence parameters of this iterative process.
 

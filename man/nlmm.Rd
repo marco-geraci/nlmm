@@ -48,13 +48,13 @@ list of control parameters of the fitting process. See \code{\link{nlmmControl}}
 not yet implemented.
 }
   \item{fit}{
-logical flag. If \code{FALSE} the function returns a list of arguments to be passed to \code{\link{optim}}.
+logical flag. If \code{FALSE} the function returns a list of arguments that can be passed to \code{\link{nlmm.fit}}.
 }
 }
 
 \details{
 
-The function fits a generalized Laplace mixed-effects model conditional on the covariates, as specified by the \code{formula} argument, and on random effects, as specified by the \code{random} argument. The predictor is assumed to be linear. The function maximizes the (log)likelihood of the generalized Laplace regression as proposed by Geraci and Farcomeni (2019). The likelihood is numerically integrated via Gaussian quadrature techniques. The optimization algorithm is based on the function \code{\link{optim}} (Nelder-Mead by default, \code{control = list(method = "Nelder-Mead")}).
+The function fits a generalized Laplace mixed-effects model conditional on the covariates, as specified by the \code{formula} argument, and on random effects, as specified by the \code{random} argument. The predictor is assumed to be linear. The function maximizes the (log)likelihood of the generalized Laplace regression as proposed by Geraci and Farcomeni (2020). The likelihood is numerically integrated via Gaussian quadrature techniques. The optimization algorithm is based on the function \code{\link{optim}} (Nelder-Mead by default, \code{control = list(method = "Nelder-Mead")}).
 
 By default, the function fits a mixed-effects model where both random effects and error term follow a generalized Laplace distribution (\code{\link{GenLaplace}}). This is a family of distributions that includes the normal and the Laplace distributions as special cases. Constrained fitting can be controlled via the arguments \code{alpha.index} and \code{alpha} in \code{\link{nlmmControl}}. For example, if \code{alpha.index = 0}, the model is Normal-Normal if \code{alpha = c(0,0)}, Normal-Laplace if \code{alpha = c(0,1)}, Laplace-Normal if \code{alpha = c(1,0)}, and Laplace-Laplace if \code{alpha = c(1,1)}. But any value of alpha between 0 (normal distribution) and 1 (Laplace distribution) is allowed.
 
@@ -99,7 +99,8 @@ An object of class \code{nlmm} is a list containing the following components:
 }
 
 \references{
-Geraci, M. and Farcomeni A (2019). A family of linear mixed-effects models using the generalized Laplace distribution. Unpublished Manuscript.
+Geraci M (2017). Mixed-effects models using the normal and the Laplace distributions: A 2 x 2 convolution scheme for applied research. arXiv:1712.07216v1 [stat.ME]. URL: \url{https://arxiv.org/abs/1712.07216v1}.
+Geraci, M. and Farcomeni A (2020). A family of linear mixed-effects models using the generalized Laplace distribution. Statistical Methods in Medical Research.
 }
 
 \author{
@@ -113,46 +114,8 @@ Marco Geraci
 
 \examples{
 
-\dontrun{
-library(nlmm)
-library(nlme)
+data(rats)
 
-data(rats, package = "nlmm")
-
-# Homoscedastic and heteroscedastic models as in Section 6.2 of Geraci and Farcomeni (2019)
-
-ff <- y ~ -1 + trt + time:trt
-rr <- ~ time
-
-# homoscedastic NN
-
-nlmm(ff, random = rr, group = id, covariance = "pdSymm", data = rats,
-control = nlmmControl(alpha.index = 0, alpha = c(0,0)))
-# equivalent to
-lme(ff, random =  list(id = pdMat(rr, pdClass = "pdSymm")), data = rats,
-method = "ML", control = lmeControl(opt = nlmmControl()$lmeOpt))
-
-# homoscedastic GL
-
-fit_GL <- nlmm(ff, random = rr, group = id, covariance = "pdSymm", data = rats,
-control = nlmmControl(nK = 10, grid = c(0.001, 0.1, 0.3, 0.5, 0.7, 0.9, 0.999)))
-
-# heteroscedastic NN
-
-nlmm(ff, random = rr, group = id, covariance = "pdSymm", data = rats,
-control = nlmmControl(alpha.index = 0, alpha = c(0,0)),
-weights = varIdent(form = ~ 1|time))
-# equivalent to
-lme(ff, random =  list(id = pdMat(rr, pdClass = "pdSymm")), data = rats,
-method = "ML", control = lmeControl(opt = nlmmControl()$lmeOpt),
-weights = varIdent(form = ~ 1|time))
-
-# heteroscedastic GL
-
-nlmm(ff, random = rr, group = id, covariance = "pdSymm", data = rats,
-control = nlmmControl(nK = 10, grid = c(0.001, 0.1, 0.3, 0.5, 0.7, 0.9, 0.999)),
-weights = varIdent(form = ~ 1|time))
-
-}
+nlmm(y ~ trt*time, random = ~ 1, group = id, data = rats, control = nlmmControl(multistart = FALSE))
  
 }
