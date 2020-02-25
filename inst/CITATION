@@ -1,0 +1,36 @@
+if (!exists("meta") || is.null(meta)) meta <- packageDescription("nlmm")
+
+citHeader("To cite package", sQuote(meta$Package), "in publications use:")
+
+year <- sub(".*(2[[:digit:]]{3})-.*", "\\1", meta$Date, perl = TRUE)
+vers <- paste("R package version", meta$Version)
+
+citEntry(
+  entry = "Manual",
+  title ="nlmm: {G}eneralized {L}aplace {M}ixed-{E}ffects {M}odels",
+  author = personList(as.person("M. Geraci")),
+  year = year,
+  note = vers,
+  url = "https://cran.r-project.org/package=nlmm",
+  textVersion  = paste0("Geraci M (",
+                     year,
+                     "). nlmm: Generalized Laplace Mixed-Effects Models. ",
+                     vers, ". Available at https://cran.r-project.org/package=nlmm", ".")
+	)
+
+	
+citEntry(
+	entry = "Article",
+ 	author = personList(as.person("Marco Geraci"), as.person("Alessio Farcomeni")),
+	title = "A family of linear mixed-effects models using the generalized {L}aplace distribution",
+ 	journal = "Statistical Methods in Medical Research",
+	volume = "",
+	number = "",
+	pages = "1--18",
+	year = "2020",
+	textVersion = paste("Geraci M and Farcomeni A (2020).",
+	"A family of linear mixed-effects models using the generalized Laplace distribution.",
+	"Statistical Methods in Medical Research, doi:10.1177/0962280220903763.")
+)
+
+citFooter("A BibTeX entry for LaTeX users is toBibtex(citation('nlmm'))")
