@@ -48,13 +48,13 @@ list of control parameters of the fitting process. See \code{\link{nlmmControl}}
 not yet implemented.
 }
   \item{fit}{
-logical flag. If \code{FALSE} the function returns a list of arguments that can be passed to \code{\link{nlmm.fit}}.
+logical flag. If \code{FALSE} the function returns a list of objects used for fitting.
 }
 }
 
 \details{
 
-The function fits a generalized Laplace mixed-effects model conditional on the covariates, as specified by the \code{formula} argument, and on random effects, as specified by the \code{random} argument. The predictor is assumed to be linear. The function maximizes the (log)likelihood of the generalized Laplace regression as proposed by Geraci and Farcomeni (2020). The likelihood is numerically integrated via Gaussian quadrature techniques. The optimization algorithm is based on the function \code{\link{optim}} (Nelder-Mead by default, \code{control = list(method = "Nelder-Mead")}).
+The function fits a generalized Laplace mixed-effects model conditional on the covariates, as specified by the \code{formula} argument, and on random effects, as specified by the \code{random} argument. The predictor is assumed to be linear. The function maximizes the (log)likelihood of the generalized Laplace regression as proposed by Geraci and Farcomeni (2020). The likelihood is numerically integrated via Gaussian quadrature techniques. The optimization algorithm can be either \code{\link{optim}} (Nelder-Mead by default) or \code{\link{nlminb}}. See \code{\link{nlmmControl}} for more details.
 
 By default, the function fits a mixed-effects model where both random effects and error term follow a generalized Laplace distribution (\code{\link{GenLaplace}}). This is a family of distributions that includes the normal and the Laplace distributions as special cases. Constrained fitting can be controlled via the arguments \code{alpha.index} and \code{alpha} in \code{\link{nlmmControl}}. For example, if \code{alpha.index = 0}, the model is Normal-Normal if \code{alpha = c(0,0)}, Normal-Laplace if \code{alpha = c(0,1)}, Laplace-Normal if \code{alpha = c(1,0)}, and Laplace-Laplace if \code{alpha = c(1,1)}. But any value of alpha between 0 (normal distribution) and 1 (Laplace distribution) is allowed.
 
@@ -110,7 +110,7 @@ Marco Geraci
 
 
 \seealso{
-\code{\link{summary.nlmm}, \link{fixef.nlmm}, \link{ranef.nlmm}, \link{VarCorr.nlmm}, \link{predict.nlmm}, \link{residuals.nlmm}}
+\code{\link{summary.nlmm}, \link{fixef.nlmm}, \link{ranef.nlmm}, \link{VarCorr.nlmm}, \link{predict.nlmm}, \link{residuals.nlmm}}, \code{\link{nlmmControl}}
 }
 
 \examples{

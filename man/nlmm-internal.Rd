@@ -6,8 +6,6 @@
 \alias{AIC.nlmm}
 \alias{lme2nlmm}
 \alias{loglik_nlmm}
-\alias{loglik_reStruct_nlmm}
-\alias{loglik_fixed_nlmm}
 \alias{loglik_alpha_nlmm}
 \alias{pchibarsq}
 \alias{Vchibarsq}

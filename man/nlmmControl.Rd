@@ -8,14 +8,14 @@ Control parameters for nlmm estimation
 A list of parameters for controlling the fitting process.
 }
 \usage{
-nlmmControl(method = "nlminb", nK = 8, multistart = TRUE, grid = c(0.001, 0.5, 0.999),
-	alpha = c(0.5, 0.5), alpha.index = 9, tol = 1e-3, maxIter = 30, lme = TRUE,
-	lmeMethod = "REML", lmeOpt = "nlminb", verbose = FALSE)
+nlmmControl(method = "Nelder-Mead", nK = 8, multistart = TRUE,
+	grid = c(0.001, 0.5, 0.999), alpha = c(0.5, 0.5), alpha.index = 9,
+	lme = TRUE, lmeMethod = "REML", lmeOpt = "nlminb", verbose = FALSE)
 }
 
 \arguments{
   \item{method}{
-character vector that specifies the optimization algorithm to fit a generalized Laplace mixed-effects model. The default is \code{\link{nlminb}}. Otherwise, \code{\link{optim}} will be used with the specified method (e.g., \code{"Nelder-Mead"}).
+character vector that specifies the optimization algorithm to fit a generalized Laplace mixed-effects model. The default is \code{"Nelder-Mead"}.
 }
   \item{nK}{
 number of knots for each of the two quadratures.
@@ -31,12 +31,6 @@ vector of length 2 with starting values between 0 and 1 for the parameter alpha 
 }
   \item{alpha.index}{
 the estimation with parameter alpha is unconstrained if \code{alpha.index} is equal to 9 (default). If equal to 0, both shape parameters (random effects and error term) are constrained during estimation and set equal to \code{alpha}. If equal to 1, the first shape parameter (random effects) is constrained during estimation and set equal to the first element of \code{alpha}. If equal to 2, the second shape parameter (error term) is constrained during estimation and set equal to the second element of \code{alpha}.
-}
-  \item{tol}{
-  relative tolerance for convergence of the algorithm. See details.
-}
-  \item{maxIter}{
-  maximum number of iterations of the algorithm. See details.
 }
   \item{lme}{
 logical flag. Should \code{\link{lme}} be used to get starting values? If \code{FALSE}, \code{\link{lm}} is used instead.
@@ -55,7 +49,7 @@ logical flag. If \code{TRUE}, information about the fitting process is printed o
 \details{
 The estimation algorithm for fitting generalized Laplace mixed-effects (GLME) models is described in Geraci and Farcomeni (2020). For unconstrained estimation, it is recommended to leave the default arguments in \code{nlmmControl} unchanged.
 
-The estimation algorithm optimize the (negative) log-integrated likelihood over the random effects, variance, and shape parameters first. Then updates the fixed effects and residuals scale parameters. The arguments \code{tol} and \code{maxIter} control the convergence parameters of this iterative process.
+The integrated log-likelihood is maximized with either \code{\link{optim}}, in which case \code{method} has to be one of \code{optim}'s options ("Nelder-Mead", "BFGS", "CG", "L-BFGS-B", "SANN", "Brent"), or \code{\link{nlminb}}, in which case one must use \code{method = "nlminb"}.
 
 Since the parameter alpha is bidimensional, care should be taken when increasing the number of quadrature knots \code{nK} since the total number of quadrature points is given by \eqn{2^{nK}}{2^nK}. For the same reason, care should be taken when providing the \code{grid} values for multi-start optimization since the total number of starting points will be \eqn{s^{2}}{s^2}, where \code{s = length(grid)}.
 

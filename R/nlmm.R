@@ -23,7 +23,7 @@
 
 # Fix estimation: obtain random effects and variance parameters first
 
-nlmmControl <- function(method = "nlminb", nK = 8, multistart = TRUE, grid = c(0.001, 0.5, 0.999), alpha = c(0.5, 0.5), alpha.index = 9, tol = 1e-3, maxIter = 30, lme = TRUE, lmeMethod = "REML", lmeOpt = "nlminb", verbose = FALSE){
+nlmmControl <- function(method = "Nelder-Mead", nK = 8, multistart = TRUE, grid = c(0.001, 0.5, 0.999), alpha = c(0.5, 0.5), alpha.index = 9, lme = TRUE, lmeMethod = "REML", lmeOpt = "nlminb", verbose = FALSE){
 
 if(length(alpha) != 2) stop("Provide starting values for alpha")
 if(!alpha.index %in% c(0,1,2,9)) stop("alpha.index is one of c(0,1,2,9)")
@@ -35,161 +35,7 @@ if(any(grid < 0 | grid > 1)) stop("values for alpha.grid must be between 0 and 1
 # 2 = second alpha fixed
 # 9 = both alpha free
 
-list(method = method, nK = nK, multistart = multistart, grid = grid, alpha = alpha, alpha.index = alpha.index, tol = tol, maxIter = maxIter, lme = lme, lmeMethod = lmeMethod, lmeOpt = lmeOpt, verbose = verbose)
-
-}
-
-nlmm.fit <- function(args, control){
-
-vf <- args$vf
-dim_theta_w <- length(coef(vf))
-P <- args$P
-S <- args$S
-
-iter <- 0
-while(iter <= control$maxIter){
-	# get estimate of theta_z and tau
-	myargs <- args
-	myargs$theta_x <- args$theta[1:P]
-	myargs$sigma <- exp(args$theta[P + S + 3])
-	#if(dim_theta_w > 0){
-	#	theta_w <- rev(rev(args$theta)[1:dim_theta_w])
-	#	coef(myargs$vf) <- theta_w
-	#} 
-		
-	oldPars1 <- c(args$theta[(P + 1):(P + S)], args$theta[(P + S + 1) : (P + S + 2)])
-	if(control$method == "nlminb"){
-		fit <- do.call(nlminb, args = c(list(objective = loglik_reStruct_nlmm, start = oldPars1, control = list(trace = 0)), myargs[-c(match(c("theta"), names(myargs)))]))
-		names(fit)[names(fit) == "objective"] <- "value"
-	} else {
-		fit <- do.call(optim, args = c(list(fn = loglik_reStruct_nlmm, par = oldPars1, method = control$method, control = list(trace = 0)), myargs[-c(match(c("theta"), names(myargs)))]))
-	}
-	newPars1 <- fit$par	
-
-	if(control$verbose){
-		cat("Iteration", iter + 1, "\n")
-		cat("Estimate:", oldPars1, "\n")
-		cat("Value:", fit$value, "\n")
-	}
-
-	# update theta with theta_z and tau
-	args$theta[(P + 1):(P + S)] <- newPars1[1:S] # theta_z
-	args$theta[(P + S + 1):(P + S + 2)] <- newPars1[(S + 1):(S + 2)] # tau
-	
-	# get estimate of theta_x, phi and theta_w
-	myargs <- args
-	myargs$theta_z <- args$theta[(P + 1):(P + S)]
-	myargs$tau <- args$theta[(P + S + 1):(P + S + 2)]
-	if(dim_theta_w > 0){
-		theta_w <- coef(args$vf)
-	} else {
-		theta_w <- NULL
-	}
-
-	oldPars2 <- c(args$theta[1:P], args$theta[P + S + 3], theta_w)
-	if(control$method == "nlminb"){
-		fit <- do.call(nlminb, args = c(list(objective = loglik_fixed_nlmm, start = oldPars2, control = list(trace = 0)), myargs[-c(match(c("theta"), names(myargs)))]))
-		names(fit)[names(fit) == "objective"] <- "value"
-	} else {
-		fit <- do.call(optim, args = c(list(fn = loglik_fixed_nlmm, par = oldPars2, method = control$method, control = list(trace = 0)), myargs[-c(match(c("theta"), names(myargs)))]))
-	}
-	newPars2 <- fit$par	
-	
-	# update theta with theta_z, phi and theta_w
-	args$theta[1:P] <- newPars2[1:P] # theta_x
-	args$theta[P + S + 3] <- newPars2[P + 1] # phi
-	if(dim_theta_w > 0){
-		theta_w <- rev(rev(newPars2)[1:dim_theta_w])
-		coef(args$vf) <- args$theta[(P + S + 3 + 1):(P + S + 3 + dim_theta_w)] <- theta_w # theta_w
-	} 
-
-	# check convergence
-	iter <- iter + 1
-	delta <- abs((oldPars1- newPars1)/ifelse(newPars1 == 0, 1, newPars1))
-	if(control$verbose) cat("Delta:", delta, "\n")
-	if (max(delta) <= control$tol) {
-		break	
-	}
-    if (iter > control$maxIter) {
-		msg <- gettext("maximum number of iterations (nlmmControl(maxIter)) reached without convergence")
-		warning(msg, domain = NA)
-    }
-}
-
-# update likelihood
-val <- do.call(loglik_nlmm, args = args)
-ans <- list(par = args$theta, value = val, iter = iter)
-
-return(ans)
-
-}
-
-loglik_reStruct_nlmm <- function(theta, y, x, z, group, nK, P, Q, S, M, N, cov_name, vf, theta_x, sigma){
-
-w <- varWeights(vf)
-y <- y*w
-x <- sweep(x, 1, w, "*")
-z <- sweep(z, 1, w, "*")
-
-Y <- split(y, group)
-Y <- lapply(Y, function(x) matrix(x, nrow = 1))
-ni <- as.numeric(table(group))
-
-theta_z <- theta[1:S]
-tau <- theta[(S + 1):(S + 2)]
-alpha <- invlogit(tau) # inverse logit
-Sigma1 <- as.matrix(pdMat(value = theta_z, pdClass = cov_name, nam = 1:Q))*sigma^2
-Sigma2 <- mapply(function(x, sigma) diag(sigma^2, x, x), ni, MoreArgs = list(sigma = sigma), SIMPLIFY = FALSE)
-
-# quadrature
-q1 <- gauss.quad.prob(nK, "gamma", alpha = min(1/alpha[1], 1e10), beta = 1)
-q2 <- gauss.quad.prob(nK, "gamma", alpha = min(1/alpha[2], 1e10), beta = 1)
-QUAD <- list(nodes = cbind(q1$nodes, q2$nodes), weights = cbind(q1$weights, q2$weights))
-
-val <- C_ll(knots = QUAD$nodes, weights = QUAD$weights, beta = theta_x, Sigma1 = Sigma1, Sigma2 = Sigma2, Y = Y, x = x, z = z, M = M, N = N, ni = ni, P = P, Q = Q, K = nK)
-
-# differential
-val <- val + sum(log(w))
-
-# negative integrated log-likelihood
-return(-val)
-
-}
-
-loglik_fixed_nlmm <- function(theta, y, x, z, group, nK, P, Q, S, M, N, cov_name, vf, theta_z, tau){
-
-dim_theta_w <- length(coef(vf))
-if(dim_theta_w > 0){
-	theta_w <- rev(rev(theta)[1:dim_theta_w])
-	coef(vf) <- theta_w
-}
-w <- varWeights(vf)
-y <- y*w
-x <- sweep(x, 1, w, "*")
-z <- sweep(z, 1, w, "*")
-
-Y <- split(y, group)
-Y <- lapply(Y, function(x) matrix(x, nrow = 1))
-ni <- as.numeric(table(group))
-
-theta_x <- theta[1:P]
-alpha <- invlogit(tau) # inverse logit
-sigma <- exp(theta[P + 1]) # inverse log
-Sigma1 <- as.matrix(pdMat(value = theta_z, pdClass = cov_name, nam = 1:Q))*sigma^2
-Sigma2 <- mapply(function(x, sigma) diag(sigma^2, x, x), ni, MoreArgs = list(sigma = sigma), SIMPLIFY = FALSE)
-
-# quadrature
-q1 <- gauss.quad.prob(nK, "gamma", alpha = min(1/alpha[1], 1e10), beta = 1)
-q2 <- gauss.quad.prob(nK, "gamma", alpha = min(1/alpha[2], 1e10), beta = 1)
-QUAD <- list(nodes = cbind(q1$nodes, q2$nodes), weights = cbind(q1$weights, q2$weights))
-
-val <- C_ll(knots = QUAD$nodes, weights = QUAD$weights, beta = theta_x, Sigma1 = Sigma1, Sigma2 = Sigma2, Y = Y, x = x, z = z, M = M, N = N, ni = ni, P = P, Q = Q, K = nK)
-
-# differential
-val <- val + sum(log(w))
-
-# negative integrated log-likelihood
-return(-val)
+list(method = method, nK = nK, multistart = multistart, grid = grid, alpha = alpha, alpha.index = alpha.index, lme = lme, lmeMethod = lmeMethod, lmeOpt = lmeOpt, verbose = verbose)
 
 }
 
@@ -430,7 +276,12 @@ if(control$multistart){
 				tmp[[k]] <- do.call(optim, args = c(list(fn = loglik_alpha_nlmm, par = FIT_ARGS$theta, method = control$method, control = list(trace = 0)), FIT_ARGS[-c(match(c("theta"), names(FIT_ARGS)))]))
 			}
 		} else {
-			tmp[[k]] <- nlmm.fit(FIT_ARGS, control)
+			if(control$method == "nlminb"){
+				tmp[[k]] <- do.call(nlminb, args = c(list(objective = loglik_nlmm, start = FIT_ARGS$theta, control = list(trace = 0)), FIT_ARGS[-c(match(c("theta"), names(FIT_ARGS)))]))
+				names(tmp[[k]])[names(tmp[[k]]) == "objective"] <- "value"
+			} else {
+				tmp[[k]] <- do.call(optim, args = c(list(fn = loglik_nlmm, par = FIT_ARGS$theta, method = control$method, control = list(trace = 0)), FIT_ARGS[-c(match(c("theta"), names(FIT_ARGS)))]))
+			}
 		}
 	}
 	close(pb)
@@ -439,7 +290,12 @@ if(control$multistart){
 	theta_0 <- c(theta_x, theta_z, tau.grid[sel,], phi_0, theta_w)
 } else {
 	if(control$alpha.index == 9){
-		fit <- nlmm.fit(FIT_ARGS, control)
+		if(control$method == "nlminb"){
+			fit <- do.call(nlminb, args = c(list(objective = loglik_nlmm, start = FIT_ARGS$theta, control = list(trace = 0)), FIT_ARGS[-c(match(c("theta"), names(FIT_ARGS)))]))
+			names(fit)[names(fit) == "objective"] <- "value"		
+		} else {
+			fit <- do.call(optim, args = c(list(fn = loglik_nlmm, par = FIT_ARGS$theta, method = control$method, control = list(trace = 0)), FIT_ARGS[-c(match(c("theta"), names(FIT_ARGS)))]))
+		}
 	} else {
 		sel <- if(control$alpha.index == 0) 1:2 else control$alpha.index
 		FIT_ARGS$tau <- tau[sel]
