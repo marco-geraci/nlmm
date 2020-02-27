@@ -675,8 +675,12 @@ return(Sigma1)
 vcov.nlmm <- function(object, ...){
 
 if(object$sc == "Normal-Normal"){
-	ans <- matrix(0, length(object$par), length(object$par))
-	ans <- as.matrix(bdiag(object$InitialPar$fit$varFix, object$InitialPar$fit$apVar))
+	if(!inherits(object$InitialPar$fit$apVar, "character")){
+		ans <- as.matrix(bdiag(object$InitialPar$fit$varFix, object$InitialPar$fit$apVar))
+	} else {
+		ans <- as.matrix(object$InitialPar$fit$varFix)
+		cat(object$InitialPar$fit$apVar, "for the random effects\n")
+	}
 	return(ans)
 }
 
