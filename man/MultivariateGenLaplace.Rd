@@ -37,12 +37,13 @@ logical; if \code{TRUE}, probabilities are log--transformed.
 
 }
 \details{
-
-This is the multivariate extension of the (univariate) generalized Laplace distribution (\code{\link{GenLaplace}}).
+This is the multivariate extension of the (univariate) generalized Laplace distribution (\code{\link{GenLaplace}}). Note that the parameter \eqn{\alpha} used in Geraci and Farcomeni (2020) corresponds to the reciprocal of the \code{shape} parameter in these functions.
 }
 
 
 \references{
+Geraci, M. and Farcomeni A (2020). A family of linear mixed-effects models using the generalized Laplace distribution. Statistical Methods in Medical Research, \url{https://doi.org/10.1177/0962280220903763}.
+
 Kozubowski, T. J., K. Podgorski, and I. Rychlik (2013). Multivariate generalized Laplace distribution and related random fields. Journal of Multivariate Analysis 113, 59-72.
 }
 \author{

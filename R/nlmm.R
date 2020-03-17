@@ -438,7 +438,6 @@ if(alpha.index == 0){
 		do.call(loglik_nlmm, args = MoreArgs)
 	}
 	
-#val <- hessian(func = f, x = object$tau, method = "Richardson", MoreArgs = FIT_ARGS)
 val <- hessian(func = f, x = logit(c(0, 0), omega = 1e-5), method = "Richardson", MoreArgs = FIT_ARGS)
 
 }
@@ -891,6 +890,81 @@ lme2nlmm <- function(x, Call, mmf, mmr, y, revOrder, vf, contr, grp, control, co
 ### Distributions
 #########################################################
 
+
+### Laplace
+
+# Density of the Laplace
+
+dl <- function(x, mu = 0, sigma = 1, log = FALSE){
+
+val <- 1/(sqrt(2)*sigma) * exp(-sqrt(2)/sigma * abs(x - mu))
+
+if(log){
+ans <- log(val)
+} else {
+ans <- val
+}
+
+return(ans)
+}
+
+# Random generation for the Laplace
+
+rl <- function(n, mu = 0, sigma = 1){
+
+# symmetric Laplace
+# Kotz et al p.18
+
+W <- rexp(n, 1)
+N <- rnorm(n, sd = sigma)
+val <- mu + sqrt(W)*N
+
+attr(val, "scale") <- W
+
+return(val)
+
+}
+
+
+### Multivariate Laplace
+
+# Density of the multivariate asymmetric Laplace
+
+dmal <- function(x, m = rep(0, nrow(sigma)), sigma, log = FALSE){
+
+n <- length(x)
+x <- as.matrix(x)
+m <- as.matrix(m)
+p <- (2 - n)/2
+s <- solve(sigma)
+a <- t(x) %*% s %*% x
+b <- t(m) %*% s %*% m
+
+A <- 2*exp(t(x) %*% s %*% m)/(2*pi)^(n/2)*det(sigma)^(-0.5)
+B <- (a/(2 + b))^(p/2)
+C <- sqrt(a*(2 + b))
+val <- A*B*besselK(C, p, expon.scaled = FALSE)
+if(log) val <- log(val)
+
+return(as.numeric(val))
+}
+
+# Random generation for the multivariate asymmetric Laplace
+
+rmal <- function(n, m = rep(0, nrow(sigma)), sigma){
+
+# multivariate asymmetric Laplace (symmetric if m = 0)
+# Kotz et al p.242
+
+W <- rexp(n, 1)
+N <- rmvnorm(n, sigma = sigma)
+m <- matrix(m, nrow = 1)
+val <- kronecker(m, W) + sweep(N, 1, sqrt(W), "*")
+
+return(val)
+
+}
+
 ### Generalized Laplace
 
 # Density of the (symmetric) generalized Laplace
@@ -959,11 +1033,20 @@ f <- function(x, p, mu, sigma, shape){
 	p - pgl(x, mu = mu, sigma = sigma, shape = shape)
 }
 
+f2 <- function(x, p, mu, sigma, shape){
+	(p - pgl(x, mu = mu, sigma = sigma, shape = shape))^2
+}
+
 V <- shape*sigma^2
 n <- length(p)
 val <- rep(NA, n)
 for(i in 1:n){
-	val[i] <- uniroot(f, p = p[i], mu = mu, sigma = sigma, shape = shape, interval = c(mu - 20*sqrt(V), mu + 20*sqrt(V)))$root
+	ans <- try(uniroot(f, p = p[i], mu = mu, sigma = sigma, shape = shape, interval = c(mu - 20*sqrt(V), mu + 20*sqrt(V)))$root, silent = TRUE)
+	if(inherits(ans, "try-error")) {
+		ans <- try(optimize(f2, p = p[i], mu = mu, sigma = sigma, shape = shape, interval = c(mu - 20*sqrt(V), mu + 20*sqrt(V)))$minimum, silent = TRUE)
+		if(inherits(ans, "try-error")) ans <- NA
+	}
+	val[i] <- ans
 }
 
 val[p == 0.5] <- mu 
@@ -1066,3 +1149,100 @@ attr(val, "scale") <- W
 return(val)
 }
 
+################################################################################
+# R code to generate data as in the simulation study for 'A family of linear mixed-effects models using the generalized Laplace distribution' by Geraci and Farcomeni
+################################################################################
+
+generate.dist <- function(fun, n, q, sigma, shape){
+
+	if(fun == "norm"){
+		fun <- rmvnorm
+		return(list(fun = fun, n = n, mean = rep(0, q), sigma = sigma))
+	}
+
+	if(fun == "laplace"){
+		fun <- rmal
+		return(list(fun = fun, n = n, mu = rep(0, q), sigma = sigma))
+	}
+	
+	if(fun == "genlaplace"){
+		fun <- rmgl
+		return(list(fun = fun, n = n, mu = rep(0, q), sigma = sigma, shape = shape))
+	}
+
+	if(fun == "t"){
+		fun <- rmvt
+		return(list(fun = fun, n = n, sigma = sigma, df = shape))
+	}
+
+}
+
+generate.design <- function(n, M, fixed = FALSE){
+
+# M groups
+# n measurements in each group
+
+N <- n*M
+if(fixed){
+	x <- rep(1:n, M)
+	z <- rbinom(n = N, size = 1, prob = 0.5)
+} else {
+	delta <- rnorm(M, 0, 1)
+	zeta <- rnorm(N, 0, 1)
+	x <- rep(delta, each = n) + zeta
+	z <- rbinom(n = N, size = 1, prob = 0.5)
+}
+
+X <- cbind(1, x, z)
+colnames(X) <- c("intercept","x","z")
+X
+}
+
+generate.data <- function(R, n, M, sigma_1 = NULL, sigma_2 = NULL, shape_1 = NULL, shape_2 = NULL, dist.u, dist.e, beta, gamma, fixed = FALSE, seed = round(runif(1,1,1000))){
+
+# M groups
+# n measurements in each group
+
+set.seed(seed)
+N <- n*M
+id <- rep(1:M, each = n)
+beta <- matrix(beta)
+gamma <- matrix(gamma)
+
+sigma_1 <- as.matrix(sigma_1)
+sigma_2 <- as.matrix(sigma_2)
+q_1 <- nrow(sigma_1)
+q_2 <- nrow(sigma_2)
+
+if(q_1 > 2) stop("max q = 2 for random effects")
+
+par.u <- generate.dist(fun = dist.u, n = M, q = q_1, sigma = sigma_1, shape = shape_1)
+par.e <- generate.dist(fun = dist.e, n = M, q = q_2, sigma = sigma_2, shape = shape_2)
+
+U <- replicate(R, do.call(par.u$fun, args = par.u[-1]))
+e <- replicate(R, do.call(par.e$fun, args = par.e[-1]))
+
+if(R == 1){
+u <- if(q_1 == 2) rep(U[,1,1], each = n) else rep(U, each = n)
+v <- if(q_1 == 2) rep(U[,2,1], each = n) else rep(0,N)
+e <- as.vector(t(e[,,1]))
+}
+
+if(R > 1){
+u <- if(q_1 == 2) apply(U[,1,], 2, function(x, n) rep(x, each = n), n = n) else apply(U, 2, function(x, n) rep(x, each = n), n = n)
+v <- if(q_1 == 2) apply(U[,2,], 2, function(x, n) rep(x, each = n), n = n) else rep(0,N)
+e <- apply(e, 3, function(x) t(x))
+
+}
+
+D <- replicate(R, generate.design(n = n, M = M, fixed = fixed))
+x <- D[,'x',]
+if(!is.matrix(x)) x <- matrix(x)
+
+y <- apply(D, 3, function(x,b) x%*%b, b = beta) + u + x*v + apply(x, 2, function(x,g) cbind(1,x)%*%g, g = gamma)*e
+ans <- list(Y = y, X = D, group = id, u = U, e = e)
+attr(ans, "call") <- match.call()
+attr(ans, "seed") <- seed
+return(ans)
+
+}

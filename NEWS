@@ -8,6 +8,9 @@ Version 1.0.0 (August 2, 2019)
 
 =============================================
 
-Version 1.0.1 (February 27, 2020)
+Version 1.0.1 (March 12, 2020)
 
+- Bugs fixes
+- Added AIC function
+- Added option for nlminb optimization
 - Package nlmm on CRAN

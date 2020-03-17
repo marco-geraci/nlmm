@@ -12,7 +12,10 @@
 \alias{wchibarsq}
 \alias{C_wdensgl}
 \alias{C_ll}
+\alias{generate.dist}
+\alias{generate.design}
+
 
 \description{Internal nlmm objects.}
-\details{These are not to be called by the user.}
+\details{These are not intended to be called by the user.}
 \keyword{internal}
