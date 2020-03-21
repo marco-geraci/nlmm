@@ -21,6 +21,12 @@ not used.
 }
 }
 
+\value{
+
+Returns the loglikelihood of the fitted model. This is a number with at one attribute, "df" (degrees of freedom), giving the number of (estimated) parameters in the model.
+
+}
+
 
 \author{
 Marco Geraci

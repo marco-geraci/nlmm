@@ -44,5 +44,17 @@ Marco Geraci
 \code{\link{nlmm}}, \code{\link{fixef.nlmm}}
 }
 
+
+\examples{
+\dontrun{
+data(rats)
+fit <- nlmm(y ~ trt*time, random = ~ time, group = id, data = rats,
+control = nlmmControl(multistart = FALSE))
+
+# Predicted random intercepts and slopes
+ranef(fit)
+}
+}
+
 \keyword{random effects}
 \keyword{coefficients}

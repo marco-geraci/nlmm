@@ -43,5 +43,17 @@ Marco Geraci
 \code{\link{nlmm}}
 }
 
+
+\examples{
+\dontrun{
+data(rats)
+fit <- nlmm(y ~ trt*time, random = ~ time, group = id, data = rats, cov = "pdSymm",
+control = nlmmControl(multistart = FALSE))
+
+# Symmetric variance-covariance of random intercepts and slopes
+VarCorr(fit)
+}
+}
+
 \keyword{covariance}
 \keyword{coefficients}

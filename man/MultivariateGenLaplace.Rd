@@ -41,6 +41,12 @@ This is the multivariate extension of the (univariate) generalized Laplace distr
 }
 
 
+\value{
+
+\code{dmgl} gives the density and \code{rmgl} generates random deviates.
+
+}
+
 \references{
 Geraci, M. and Farcomeni A (2020). A family of linear mixed-effects models using the generalized Laplace distribution. Statistical Methods in Medical Research, \url{https://doi.org/10.1177/0962280220903763}.
 

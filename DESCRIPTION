@@ -5,10 +5,10 @@ Version: 1.0.1
 Date: 2020-03-12
 Authors@R: c(person(given="Marco", family="Geraci", role=c("aut", "cph", "cre"), email="geraci@mailbox.sc.edu", comment = c(ORCID = "0000-0002-6311-8685")), person(given="Alessio", family="Farcomeni", role=c("ctb"), email="alessio.farcomeni@uniroma1.it"))
 Maintainer: Marco Geraci <geraci@mailbox.sc.edu>
-Depends: R (>= 3.0.0)
+Depends: R (>= 3.0.0), nlme
 Imports: utils, lqmm, HI, mvtnorm, MASS, nlme, numDeriv, statmod, stats, Matrix, Qtools, Rcpp (>= 0.12.13)
 LinkingTo: Rcpp, RcppArmadillo, BH
-Description: The nlmm package provides functions to fit linear mixed models
+Description: Provides functions to fit linear mixed models
 	based on convolutions of the generalized Laplace (GL) distribution.
 	The GL mixed-effects model includes four special cases with normal random
 	effects and normal errors (NN), normal random effects and Laplace errors (NL),

@@ -42,4 +42,16 @@ Marco Geraci
 \code{\link{nlmm}}, \code{\link{ranef.nlmm}}, \code{\link{fixef.nlmm}}
 }
 
+\examples{
+\dontrun{
+data(rats)
+fit <- nlmm(y ~ trt*time, random = ~ 1, group = id, data = rats,
+control = nlmmControl(multistart = FALSE))
+
+# Individual growth trajectories
+predict(fit, level = 1)
+}
+}
+
+
 \keyword{prediction}

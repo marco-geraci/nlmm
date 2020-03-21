@@ -40,4 +40,15 @@ Marco Geraci}
 \code{\link{nlmm}}
 }
 
+
+\examples{
+\dontrun{
+data(rats)
+fit <- nlmm(y ~ trt*time, random = ~ 1, group = id, data = rats,
+control = nlmmControl(multistart = FALSE))
+summary(fit)
+
+}
+}
+
 \keyword{standard errors}

@@ -43,6 +43,11 @@ f(x) =
 where \eqn{\mu} is the location parameter and \eqn{\sigma} is the scale parameter.
 }
 
+\value{
+
+\code{dl} gives the density and \code{rl} generates random deviates.
+
+}
 
 \references{
 Kotz, S., Kozubowski, T., and Podgorski, K. (2001). The Laplace distribution and generalizations. Boston, MA: Birkhauser.

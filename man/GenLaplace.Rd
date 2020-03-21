@@ -56,6 +56,12 @@ f(x) =
 where \eqn{\omega = \beta - 1/2}, \eqn{\mu} is the location parameter, \eqn{\sigma} is the scale parameter, and \eqn{\beta} is the shape parameter (note that the parameterization in \code{\link{nlmm}} is \eqn{\alpha = \frac{1}{\beta}}). \eqn{\Gamma()} denotes the Gamma function and \eqn{B[u]()} the modified Bessel function of the third kind with index \eqn{u}.
 }
 
+\value{
+
+\code{dgl} gives the density, \code{pgl} gives the distribution function, \code{qgl} gives the quantile function, and \code{rgl} generates random deviates.
+
+}
+
 
 \references{
 Kotz, S., Kozubowski, T., and Podgorski, K. (2001). The Laplace distribution and generalizations. Boston, MA: Birkhauser.

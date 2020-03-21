@@ -117,6 +117,7 @@ Marco Geraci
 
 data(rats)
 
-nlmm(y ~ trt*time, random = ~ 1, group = id, data = rats, control = nlmmControl(multistart = FALSE))
+nlmm(y ~ trt*time, random = ~ 1, group = id, data = rats,
+control = nlmmControl(multistart = FALSE))
  
 }

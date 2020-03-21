@@ -201,11 +201,10 @@ if(control$alpha.index == 0){
 	if(control$alpha[1] == 0 & control$alpha[2] == 1) sc <- "Normal-Laplace"
 	if(control$alpha[1] == 1 & control$alpha[2] == 0) sc <- "Laplace-Normal"
 
-	#if(sc == "Normal-Normal") cat("Both alphas are fixed to 0. Fitting a standard linear mixed model with 'nlmm'. Consider using 'lme' instead", "\n")
 }
 
 if(sc == "Normal-Normal"){
-	cat("Both alphas are fixed to 0. Fitting a standard linear mixed model with 'lme'", "\n")
+	message("Both alphas are fixed to 0. Fitting a standard linear mixed model with 'lme'")
 	reStruct <- list(group = nlme::pdMat(random, pdClass = cov_name))
 	names(reStruct) <- as.character(group)
 	lmeFit <- nlme::lme(fixed = fixed, random = reStruct, weights = weights, data = dataMix, method = "ML", control = lmeControl(opt = control$lmeOpt))
@@ -244,7 +243,7 @@ if(!fit){
 
 if(control$multistart & control$alpha.index == 0){
 	control$multistart <- FALSE
-	cat("Both alphas are fixed. Ignoring multistart", "\n")
+	message("Both alphas are fixed. Ignoring multistart")
 }
 
 if(control$multistart){
@@ -678,7 +677,7 @@ if(object$sc == "Normal-Normal"){
 		ans <- as.matrix(bdiag(object$InitialPar$fit$varFix, object$InitialPar$fit$apVar))
 	} else {
 		ans <- as.matrix(object$InitialPar$fit$varFix)
-		cat(object$InitialPar$fit$apVar, "for the random effects\n")
+		message(object$InitialPar$fit$apVar, " for the random effects")
 	}
 	return(ans)
 }
