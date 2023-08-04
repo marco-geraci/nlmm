@@ -17,8 +17,8 @@ The nlmm package provides functions to fit linear mixed models
 \tabular{ll}{
 Package: \tab nlmm\cr
 Type: \tab Package\cr
-Version: \tab 1.0.1\cr
-Date: \tab 2020-03-21\cr
+Version: \tab 1.0.3\cr
+Date: \tab 2023-08-04\cr
 License: \tab GPL (>=3)\cr
 LazyLoad: \tab yes\cr
 }
@@ -27,13 +27,13 @@ LazyLoad: \tab yes\cr
 \author{
 Marco Geraci [aut, cph, cre], Alessio Farcomeni [ctb]
 
-Maintainer: Marco Geraci <geraci@mailbox.sc.edu>
+Maintainer: Marco Geraci <marco.geraci@uniroma1.it>
 }
 
 \references{
 Geraci M (2017). Mixed-effects models using the normal and the Laplace distributions: A 2 x 2 convolution scheme for applied research. arXiv:1712.07216v1 [stat.ME]. URL: \url{https://arxiv.org/abs/1712.07216v1}.
 
-Geraci, M. and Farcomeni A (2020). A family of linear mixed-effects models using the generalized Laplace distribution. Statistical Methods in Medical Research, \url{https://doi.org/10.1177/0962280220903763}.
+Geraci, M. and Farcomeni A (2020). A family of linear mixed-effects models using the generalized Laplace distribution. Statistical Methods in Medical Research 29(9), 2665-2682.
 }
 
 \keyword{random effects}
