@@ -14,3 +14,16 @@ Version 1.0.1 (March 21, 2020)
 - Added AIC function
 - Added option for nlminb optimization
 - Package nlmm on CRAN
+
+=============================================
+
+Version 1.0.2 (December 14, 2022)
+
+- Removed dependency on HI package which had caused archival of nlmm 1.0.1.
+
+=============================================
+
+Version 1.0.2 (August 04, 2023)
+
+- Revised function dmgl with more stable calculation of Bessel function using gls package.
+- Fixed bug concerning use of uninitialized variance function in nlmm.

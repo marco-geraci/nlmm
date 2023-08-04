@@ -1,11 +1,12 @@
 useDynLib(nlmm, .registration=TRUE)
 
-importFrom(Rcpp, evalCpp)
-importFrom("utils", "packageDescription", "combn", "setTxtProgressBar", "txtProgressBar")
+importFrom("gsl", "bessel_lnKnu")
 importFrom("lqmm", "theta.z.dim", "is.positive.definite", "make.positive.definite")
 importFrom("Qtools", "logit", "invlogit")
+importFrom("Rcpp", "evalCpp")
 importFrom("statmod", "gauss.quad.prob")
-import("HI")
+importFrom("utils", "packageDescription", "combn", "setTxtProgressBar", "txtProgressBar")
+
 import("MASS")
 import("mvtnorm")
 import("nlme")
