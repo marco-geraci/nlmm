@@ -207,7 +207,7 @@ if(sc == "Normal-Normal"){
 	message("Both alphas are fixed to 0. Fitting a standard linear mixed model with 'lme'")
 	reStruct <- list(group = nlme::pdMat(random, pdClass = cov_name))
 	names(reStruct) <- as.character(group)
-	lmeFit <- nlme::lme(fixed = fixed, random = reStruct, weights = weights, data = dataMix, method = "ML", control = lmeControl(opt = control$lmeOpt))
+	lmeFit <- nlme::lme(fixed = fixed, random = reStruct, weights = vf, data = dataMix, method = "ML", control = lmeControl(opt = control$lmeOpt))
 	ans <- lme2nlmm(x = lmeFit, Call = Call, mmf = mmf, mmr = mmr, y = y, revOrder = revOrder, vf = vf, contr = contr, grp = grp, control = control, cov_name = cov_name, mfArgs = mfArgs)
 	return(ans)
 
@@ -216,7 +216,7 @@ if(sc == "Normal-Normal"){
 if(control$lme){
 	reStruct <- list(group = nlme::pdMat(random, pdClass = cov_name))
 	names(reStruct) <- as.character(group)
-	lmeFit <- nlme::lme(fixed = fixed, random = reStruct, weights = weights, data = dataMix, method = control$lmeMethod, control = lmeControl(opt = control$lmeOpt))
+	lmeFit <- nlme::lme(fixed = fixed, random = reStruct, weights = vf, data = dataMix, method = control$lmeMethod, control = lmeControl(opt = control$lmeOpt))
 	theta_x <- as.numeric(lmeFit$coefficients$fixed)
 	theta_z <- as.numeric(coef(lmeFit[[1]]$reStruct)) # log-Cholesky scale
 	theta_w <- as.numeric(coef(lmeFit[[1]]$varStruct)) # numeric(0) if coef is NULL
@@ -269,17 +269,17 @@ if(control$multistart){
 			FIT_ARGS$index <- control$alpha.index
 			
 			if(control$method == "nlminb"){
-				tmp[[k]] <- do.call(nlminb, args = c(list(objective = loglik_alpha_nlmm, start = FIT_ARGS$theta, control = list(trace = 0)), FIT_ARGS[-c(match(c("theta"), names(FIT_ARGS)))]))
+				tmp[[k]] <- do.call(nlminb, args = c(list(objective = loglik_alpha_nlmm, start = FIT_ARGS$theta, control = list(trace = as.numeric(control$verbose))), FIT_ARGS[-c(match(c("theta"), names(FIT_ARGS)))]))
 				names(tmp[[k]])[names(tmp[[k]]) == "objective"] <- "value"
 			} else {
-				tmp[[k]] <- do.call(optim, args = c(list(fn = loglik_alpha_nlmm, par = FIT_ARGS$theta, method = control$method, control = list(trace = 0)), FIT_ARGS[-c(match(c("theta"), names(FIT_ARGS)))]))
+				tmp[[k]] <- do.call(optim, args = c(list(fn = loglik_alpha_nlmm, par = FIT_ARGS$theta, method = control$method, control = list(trace = as.numeric(control$verbose))), FIT_ARGS[-c(match(c("theta"), names(FIT_ARGS)))]))
 			}
 		} else {
 			if(control$method == "nlminb"){
-				tmp[[k]] <- do.call(nlminb, args = c(list(objective = loglik_nlmm, start = FIT_ARGS$theta, control = list(trace = 0)), FIT_ARGS[-c(match(c("theta"), names(FIT_ARGS)))]))
+				tmp[[k]] <- do.call(nlminb, args = c(list(objective = loglik_nlmm, start = FIT_ARGS$theta, control = list(trace = as.numeric(control$verbose))), FIT_ARGS[-c(match(c("theta"), names(FIT_ARGS)))]))
 				names(tmp[[k]])[names(tmp[[k]]) == "objective"] <- "value"
 			} else {
-				tmp[[k]] <- do.call(optim, args = c(list(fn = loglik_nlmm, par = FIT_ARGS$theta, method = control$method, control = list(trace = 0)), FIT_ARGS[-c(match(c("theta"), names(FIT_ARGS)))]))
+				tmp[[k]] <- do.call(optim, args = c(list(fn = loglik_nlmm, par = FIT_ARGS$theta, method = control$method, control = list(trace = as.numeric(control$verbose))), FIT_ARGS[-c(match(c("theta"), names(FIT_ARGS)))]))
 			}
 		}
 	}
@@ -290,10 +290,10 @@ if(control$multistart){
 } else {
 	if(control$alpha.index == 9){
 		if(control$method == "nlminb"){
-			fit <- do.call(nlminb, args = c(list(objective = loglik_nlmm, start = FIT_ARGS$theta, control = list(trace = 0)), FIT_ARGS[-c(match(c("theta"), names(FIT_ARGS)))]))
+			fit <- do.call(nlminb, args = c(list(objective = loglik_nlmm, start = FIT_ARGS$theta, control = list(trace = as.numeric(control$verbose))), FIT_ARGS[-c(match(c("theta"), names(FIT_ARGS)))]))
 			names(fit)[names(fit) == "objective"] <- "value"		
 		} else {
-			fit <- do.call(optim, args = c(list(fn = loglik_nlmm, par = FIT_ARGS$theta, method = control$method, control = list(trace = 0)), FIT_ARGS[-c(match(c("theta"), names(FIT_ARGS)))]))
+			fit <- do.call(optim, args = c(list(fn = loglik_nlmm, par = FIT_ARGS$theta, method = control$method, control = list(trace = as.numeric(control$verbose))), FIT_ARGS[-c(match(c("theta"), names(FIT_ARGS)))]))
 		}
 	} else {
 		sel <- if(control$alpha.index == 0) 1:2 else control$alpha.index
@@ -301,10 +301,10 @@ if(control$multistart){
 		FIT_ARGS$index <- control$alpha.index
 		
 		if(control$method == "nlminb"){
-			fit <- do.call(nlminb, args = c(list(objective = loglik_alpha_nlmm, start = FIT_ARGS$theta, control = list(trace = 0)), FIT_ARGS[-c(match(c("theta"), names(FIT_ARGS)))]))
+			fit <- do.call(nlminb, args = c(list(objective = loglik_alpha_nlmm, start = FIT_ARGS$theta, control = list(trace = as.numeric(control$verbose))), FIT_ARGS[-c(match(c("theta"), names(FIT_ARGS)))]))
 			names(fit)[names(fit) == "objective"] <- "value"
 		} else {
-			fit <- do.call(optim, args = c(list(fn = loglik_alpha_nlmm, par = FIT_ARGS$theta, method = control$method, control = list(trace = 0)), FIT_ARGS[-c(match(c("theta"), names(FIT_ARGS)))]))
+			fit <- do.call(optim, args = c(list(fn = loglik_alpha_nlmm, par = FIT_ARGS$theta, method = control$method, control = list(trace = as.numeric(control$verbose))), FIT_ARGS[-c(match(c("theta"), names(FIT_ARGS)))]))
 		}
 	}
 }
@@ -1087,7 +1087,6 @@ dmgl <- function(x, mu = rep(0, n), sigma = diag(n), shape = 1, log = FALSE){
 # mu = symmetry
 # sigma = scale
 
-
 Q <- function(x, sigma){
 	x <- as.matrix(x)
 	val <- sqrt(crossprod(x, sigma) %*% x)
@@ -1105,15 +1104,22 @@ mu <- as.matrix(mu)
 sigma <- as.matrix(sigma)
 x <- as.matrix(x)
 p <- shape - n/2
-k <- sqrt(det(sigma))
-sigma <- solve(sigma)
 
-val1 <- 2*exp(crossprod(mu, sigma) %*% x)/((2*pi)^(n/2)*gamma(shape)*k)
-val2 <- (Q(x, sigma)/C(mu, sigma))^p
-val3 <- besselK(Q(x, sigma)*C(mu, sigma), nu = p, expon.scaled = FALSE)
+FLAG <- isTRUE(all.equal(sigma[!diag(n)], rep(0, n*(n-1))))
+if(FLAG){
+	k <- sqrt(prod(diag(sigma)))
+	diag(sigma) <- 1/diag(sigma)
+} else {
+	k <- sqrt(det(sigma))
+	sigma <- solve(sigma)
+}
 
-val <- val1*val2*val3
-if(log) val <- log(val)
+val1 <- log(2) + crossprod(mu, sigma) %*% x - n/2*log(2*pi) - log(gamma(shape)) - log(k)
+val2 <- p*log(Q(x, sigma)) - p*log(C(mu, sigma))
+val3 <- bessel_lnKnu(x = Q(x, sigma)*C(mu, sigma), nu = abs(p))
+
+val <- val1 + val2 + val3
+if(!log) val <- exp(val)
 
 attr(val, "terms") <- c(val1, val2, val3)
 return(val)
