@@ -978,12 +978,12 @@ dgl <- function(x, mu = 0, sigma = 1, shape = 1, log = FALSE){
 
 p <- shape - 1/2
 
-val1 <- sqrt(2)/(sigma^(p + 1)*gamma(shape)*sqrt(pi))
-val2 <- (abs(x - mu)/sqrt(2))^p
-val3 <- besselK(sqrt(2)*abs(x - mu)/sigma, nu = p, expon.scaled = FALSE)
+val1 <- 0.5*log(2) - (p+1)*log(sigma) - log(gamma(shape)) - 0.5*log(pi)
+val2 <- p*log(abs(x - mu)) - p*0.5*log(2)
+val3 <- bessel_lnKnu(x = sqrt(2)*abs(x - mu)/sigma, nu = abs(p))
 
-val <- val1*val2*val3
-if(log) val <- log(val)
+val <- val1 + val2 + val3
+if(!log) val <- exp(val)
 
 return(val)
 }
@@ -1107,14 +1107,14 @@ p <- shape - n/2
 
 FLAG <- isTRUE(all.equal(sigma[!diag(n)], rep(0, n*(n-1))))
 if(FLAG){
-	k <- sqrt(prod(diag(sigma)))
+	logk <- 0.5*sum(log(diag(sigma)))
 	diag(sigma) <- 1/diag(sigma)
 } else {
-	k <- sqrt(det(sigma))
+	logk <- 0.5*determinant(sigma, log = TRUE)$modulus
 	sigma <- solve(sigma)
 }
 
-val1 <- log(2) + crossprod(mu, sigma) %*% x - n/2*log(2*pi) - log(gamma(shape)) - log(k)
+val1 <- log(2) + crossprod(mu, sigma) %*% x - n/2*log(2*pi) - log(gamma(shape)) - logk
 val2 <- p*log(Q(x, sigma)) - p*log(C(mu, sigma))
 val3 <- bessel_lnKnu(x = Q(x, sigma)*C(mu, sigma), nu = abs(p))
 
