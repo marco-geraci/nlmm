@@ -896,6 +896,8 @@ lme2nlmm <- function(x, Call, mmf, mmr, y, revOrder, vf, contr, grp, control, co
 
 dl <- function(x, mu = 0, sigma = 1, log = FALSE){
 
+stopifnot(sigma > 0)
+
 val <- 1/(sqrt(2)*sigma) * exp(-sqrt(2)/sigma * abs(x - mu))
 
 if(log){
@@ -913,6 +915,8 @@ rl <- function(n, mu = 0, sigma = 1){
 
 # symmetric Laplace
 # Kotz et al p.18
+
+stopifnot(sigma > 0)
 
 W <- rexp(n, 1)
 N <- rnorm(n, sd = sigma)
@@ -976,6 +980,8 @@ dgl <- function(x, mu = 0, sigma = 1, shape = 1, log = FALSE){
 # sigma = scale
 # variance = shape*sigma^2
 
+stopifnot(shape > 0, sigma > 0)
+
 p <- shape - 1/2
 
 val1 <- 0.5*log(2) - (p+1)*log(sigma) - log(gamma(shape)) - 0.5*log(pi)
@@ -997,6 +1003,8 @@ pgl <- function(x, mu = 0, sigma = 1, shape = 1, lower.tail = TRUE, log.p = FALS
 # mu = location
 # sigma = scale
 # variance = shape*sigma^2
+
+stopifnot(shape > 0, sigma > 0)
 
 n <- length(x)
 val <- rep(NA, n)
@@ -1025,6 +1033,8 @@ qgl <- function(p, mu = 0, sigma = 1, shape = 1, lower.tail = TRUE, log.p = FALS
 # mu = location
 # sigma = scale
 # variance = shape*sigma^2
+
+stopifnot(shape > 0, sigma > 0)
 
 if(log.p) p <- exp(p)
 
@@ -1065,6 +1075,8 @@ rgl <- function(n, mu = 0, sigma = 1, shape = 1){
 # sigma = scale
 # variance = shape*sigma^2
 
+stopifnot(shape > 0, sigma > 0)
+
 W <- rgamma(n, shape = shape, scale = 1)
 N <- rnorm(n, sd = sigma)
 val <- mu + sqrt(W)*N
@@ -1086,6 +1098,8 @@ dmgl <- function(x, mu = rep(0, n), sigma = diag(n), shape = 1, log = FALSE){
 # Kozubowski et al et (2013, Journal of Multivariate Analysis)
 # mu = symmetry
 # sigma = scale
+
+stopifnot(shape > 0)
 
 Q <- function(x, sigma){
 	x <- as.matrix(x)
@@ -1134,6 +1148,8 @@ rmgl <- function(n, mu, sigma, shape = 1){
 # Kozubowski et al et (2013, Journal of Multivariate Analysis)
 # mu = symmetry
 # sigma = scale
+
+stopifnot(shape > 0)
 
     if (!isSymmetric(sigma, tol = sqrt(.Machine$double.eps), 
         check.attributes = FALSE)) {
