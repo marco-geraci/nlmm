@@ -933,17 +933,17 @@ return(val)
 
 # Density of the multivariate asymmetric Laplace
 
-dmal <- function(x, m = rep(0, nrow(sigma)), sigma, log = FALSE){
+dmal <- function(x, mu = rep(0, d), sigma = diag(d), log = FALSE){
 
-n <- length(x)
+d <- length(x)
 x <- as.matrix(x)
-m <- as.matrix(m)
-p <- (2 - n)/2
+mu <- as.matrix(mu)
+p <- (2 - d)/2
 s <- solve(sigma)
 a <- t(x) %*% s %*% x
-b <- t(m) %*% s %*% m
+b <- t(mu) %*% s %*% mu
 
-A <- 2*exp(t(x) %*% s %*% m)/(2*pi)^(n/2)*det(sigma)^(-0.5)
+A <- 2*exp(t(x) %*% s %*% mu)/(2*pi)^(d/2)*det(sigma)^(-0.5)
 B <- (a/(2 + b))^(p/2)
 C <- sqrt(a*(2 + b))
 val <- A*B*besselK(C, p, expon.scaled = FALSE)
@@ -954,15 +954,15 @@ return(as.numeric(val))
 
 # Random generation for the multivariate asymmetric Laplace
 
-rmal <- function(n, m = rep(0, nrow(sigma)), sigma){
+rmal <- function(n, mu, sigma){
 
-# multivariate asymmetric Laplace (symmetric if m = 0)
+# multivariate asymmetric Laplace (symmetric if mu = 0)
 # Kotz et al p.242
 
 W <- rexp(n, 1)
 N <- rmvnorm(n, sigma = sigma)
-m <- matrix(m, nrow = 1)
-val <- kronecker(m, W) + sweep(N, 1, sqrt(W), "*")
+mu <- matrix(mu, nrow = 1)
+val <- kronecker(mu, W) + sweep(N, 1, sqrt(W), "*")
 
 return(val)
 
@@ -972,11 +972,10 @@ return(val)
 
 # Density of the (symmetric) generalized Laplace
 
-dgl <- function(x, mu = 0, sigma = 1, shape = 1, log = FALSE){
+dgl <- function(x, sigma = 1, shape = 1, log = FALSE){
 
 # symmetric generalized Laplace
 # Kotz et al p.190
-# mu = location
 # sigma = scale
 # variance = shape*sigma^2
 
@@ -985,8 +984,8 @@ stopifnot(shape > 0, sigma > 0)
 p <- shape - 1/2
 
 val1 <- 0.5*log(2) - (p+1)*log(sigma) - log(gamma(shape)) - 0.5*log(pi)
-val2 <- p*log(abs(x - mu)) - p*0.5*log(2)
-val3 <- bessel_lnKnu(x = sqrt(2)*abs(x - mu)/sigma, nu = abs(p))
+val2 <- p*log(abs(x)) - p*0.5*log(2)
+val3 <- bessel_lnKnu(x = sqrt(2)*abs(x)/sigma, nu = abs(p))
 
 val <- val1 + val2 + val3
 if(!log) val <- exp(val)
@@ -996,11 +995,10 @@ return(val)
 
 # CDF of the (symmetric) generalized Laplace
 
-pgl <- function(x, mu = 0, sigma = 1, shape = 1, lower.tail = TRUE, log.p = FALSE){
+pgl <- function(x, sigma = 1, shape = 1, lower.tail = TRUE, log.p = FALSE){
 
 # symmetric generalized Laplace
 # Kotz et al p.190
-# mu = location
 # sigma = scale
 # variance = shape*sigma^2
 
@@ -1011,11 +1009,11 @@ val <- rep(NA, n)
 	
 if(lower.tail){
 	for(i in 1:n){
-		val[i] <- integrate(dgl, lower = -Inf, upper = x[i], mu = mu, sigma = sigma, shape = shape)$value
+		val[i] <- integrate(dgl, lower = -Inf, upper = x[i], sigma = sigma, shape = shape)$value
 	}
 } else {
 	for(i in 1:n){
-		val[i] <- integrate(dgl, lower = x[i], upper = Inf, mu = mu, sigma = sigma, shape = shape)$value
+		val[i] <- integrate(dgl, lower = x[i], upper = Inf, sigma = sigma, shape = shape)$value
 	}
 }
 
@@ -1026,11 +1024,10 @@ return(val)
 
 # quantile of the (symmetric) generalized Laplace
 
-qgl <- function(p, mu = 0, sigma = 1, shape = 1, lower.tail = TRUE, log.p = FALSE){
+qgl <- function(p, sigma = 1, shape = 1, lower.tail = TRUE, log.p = FALSE){
 
 # symmetric generalized Laplace
 # Kotz et al p.190
-# mu = location
 # sigma = scale
 # variance = shape*sigma^2
 
@@ -1038,27 +1035,27 @@ stopifnot(shape > 0, sigma > 0)
 
 if(log.p) p <- exp(p)
 
-f <- function(x, p, mu, sigma, shape){
-	p - pgl(x, mu = mu, sigma = sigma, shape = shape)
+f <- function(x, p, sigma, shape){
+	p - pgl(x, sigma = sigma, shape = shape)
 }
 
-f2 <- function(x, p, mu, sigma, shape){
-	(p - pgl(x, mu = mu, sigma = sigma, shape = shape))^2
+f2 <- function(x, p, sigma, shape){
+	(p - pgl(x, sigma = sigma, shape = shape))^2
 }
 
 V <- shape*sigma^2
 n <- length(p)
 val <- rep(NA, n)
 for(i in 1:n){
-	ans <- try(uniroot(f, p = p[i], mu = mu, sigma = sigma, shape = shape, interval = c(mu - 20*sqrt(V), mu + 20*sqrt(V)))$root, silent = TRUE)
+	ans <- try(uniroot(f, p = p[i], sigma = sigma, shape = shape, interval = c(-20*sqrt(V), 20*sqrt(V)))$root, silent = TRUE)
 	if(inherits(ans, "try-error")) {
-		ans <- try(optimize(f2, p = p[i], mu = mu, sigma = sigma, shape = shape, interval = c(mu - 20*sqrt(V), mu + 20*sqrt(V)))$minimum, silent = TRUE)
+		ans <- try(optimize(f2, p = p[i], sigma = sigma, shape = shape, interval = c(-20*sqrt(V), 20*sqrt(V)))$minimum, silent = TRUE)
 		if(inherits(ans, "try-error")) ans <- NA
 	}
 	val[i] <- ans
 }
 
-val[p == 0.5] <- mu 
+val[p == 0.5] <- 0
 
 if(!lower.tail) val <- -val
 
@@ -1067,11 +1064,10 @@ return(val)
 
 # Random generation for the (symmetric) generalized Laplace
 
-rgl <- function(n, mu = 0, sigma = 1, shape = 1){
+rgl <- function(n, sigma = 1, shape = 1){
 
 # symmetric generalized Laplace
 # Kotz et al p.190
-# mu = location
 # sigma = scale
 # variance = shape*sigma^2
 
@@ -1079,7 +1075,7 @@ stopifnot(shape > 0, sigma > 0)
 
 W <- rgamma(n, shape = shape, scale = 1)
 N <- rnorm(n, sd = sigma)
-val <- mu + sqrt(W)*N
+val <- sqrt(W)*N
 
 attr(val, "scale") <- W
 
@@ -1092,7 +1088,7 @@ return(val)
 
 # Density of the (centered) asymmetric multivariate generalized Laplace
 
-dmgl <- function(x, mu = rep(0, n), sigma = diag(n), shape = 1, log = FALSE){
+dmgl <- function(x, mu = rep(0, d), sigma = diag(d), shape = 1, log = FALSE){
 
 # asymmetric multivariate generalized Laplace (symmetric if mu = 0)
 # Kozubowski et al et (2013, Journal of Multivariate Analysis)
@@ -1113,13 +1109,13 @@ C <- function(mu, sigma){
 	return(val)
 }
 
-n <- length(x)
+d <- length(x)
 mu <- as.matrix(mu)
 sigma <- as.matrix(sigma)
 x <- as.matrix(x)
-p <- shape - n/2
+p <- shape - d/2
 
-FLAG <- isTRUE(all.equal(sigma[!diag(n)], rep(0, n*(n-1))))
+FLAG <- isTRUE(all.equal(sigma[!diag(d)], rep(0, d*(d-1))))
 if(FLAG){
 	logk <- 0.5*sum(log(diag(sigma)))
 	diag(sigma) <- 1/diag(sigma)
@@ -1128,7 +1124,7 @@ if(FLAG){
 	sigma <- solve(sigma)
 }
 
-val1 <- log(2) + crossprod(mu, sigma) %*% x - n/2*log(2*pi) - log(gamma(shape)) - logk
+val1 <- log(2) + crossprod(mu, sigma) %*% x - d/2*log(2*pi) - log(gamma(shape)) - logk
 val2 <- p*log(Q(x, sigma)) - p*log(C(mu, sigma))
 val3 <- bessel_lnKnu(x = Q(x, sigma)*C(mu, sigma), nu = abs(p))
 
