@@ -17,8 +17,8 @@ The nlmm package provides functions to fit linear mixed models
 \tabular{ll}{
 Package: \tab nlmm\cr
 Type: \tab Package\cr
-Version: \tab 1.0.3\cr
-Date: \tab 2023-08-04\cr
+Version: \tab 1.1.0\cr
+Date: \tab 2023-09-04\cr
 License: \tab GPL (>=3)\cr
 LazyLoad: \tab yes\cr
 }

@@ -11,8 +11,8 @@ The Multivariate Asymmetric Laplace Distribution
 Density and random generation for the multivariate asymmetric Laplace distribution.}
 
 \usage{
-dmal(x, m = rep(0, nrow(sigma)), sigma, log = FALSE)
-rmal(n, m = rep(0, nrow(sigma)), sigma)
+dmal(x, mu = rep(0, d), sigma = diag(d), log = FALSE)
+rmal(n, mu, sigma)
 }
 
 \arguments{
@@ -22,7 +22,7 @@ vector of quantiles.
   \item{n}{
 number of observations.
 }
-  \item{m}{
+  \item{mu}{
 asymmetry parameter.
 }
   \item{sigma}{
@@ -34,7 +34,7 @@ logical; if \code{TRUE}, probabilities are log--transformed.
 }
 \details{
 
-This is the multivariate extension of the (univariate) asymmetric Laplace distribution.
+This is the multivariate extension of the (univariate) asymmetric Laplace distribution. It is a special case of \code{\link{MultivariateGenLaplace}} with \code{shape = 1}.
 }
 
 

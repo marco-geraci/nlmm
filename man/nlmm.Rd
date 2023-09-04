@@ -101,7 +101,7 @@ An object of class \code{nlmm} is a list containing the following components:
 \references{
 Geraci M (2017). Mixed-effects models using the normal and the Laplace distributions: A 2 x 2 convolution scheme for applied research. arXiv:1712.07216v1 [stat.ME]. URL: \url{https://arxiv.org/abs/1712.07216v1}.
 
-Geraci, M. and Farcomeni A (2020). A family of linear mixed-effects models using the generalized Laplace distribution. Statistical Methods in Medical Research, \url{https://doi.org/10.1177/0962280220903763}.
+Geraci, M. and Farcomeni A. (2020). A family of linear mixed-effects models using the generalized Laplace distribution. Statistical Methods in Medical Research, 29(9), 2665-2682.
 }
 
 \author{
